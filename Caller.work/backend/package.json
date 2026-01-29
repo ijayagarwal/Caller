@@ -1,0 +1,16 @@
+{
+  "name": "ai-caller-prototype",
+  "version": "1.0.0",
+  "description": "Minimal AI phone caller prototype",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "openai": "^4.20.1",
+    "twilio": "^4.19.0"
+  }
+}
