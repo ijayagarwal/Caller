@@ -16,9 +16,16 @@ export function Hero() {
     if (!phoneNumber) return;
     setLoading(true);
     setStatus('Initiating call...');
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+    if (!backendUrl && import.meta.env.PROD) {
+      console.error('VITE_BACKEND_URL is not defined in production environment.');
+      setStatus('Configuration error: Backend URL missing.');
+      setLoading(false);
+      return;
+    }
+    const finalBackendUrl = backendUrl || 'http://localhost:3000';
     try {
-      const response = await fetch(`${backendUrl}/api/call`, {
+      const response = await fetch(`${finalBackendUrl}/api/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phoneNumber }),
