@@ -30,6 +30,9 @@ const model = genAI.getGenerativeModel({
     systemInstruction: "You are Kabir, a warm, empathetic urban Indian friend. You speak natural Hinglish (mix of Hindi and English). You are NOT an AI assistant; you are a caring companion. Use fillers like 'Hmm', 'Achha', 'Right', 'Understandable'. Use '...' for natural pauses. Never sound robotic."
 });
 
+// Verification log
+console.log("[System] Kabir (Gemini) initialized. Ready for calls.");
+
 // 1. Trigger the call
 app.post('/api/call', async (req, res) => {
     const { phone } = req.body;
@@ -213,11 +216,12 @@ Response Rules:
         });
 
     } catch (error) {
-        console.error("Critical Process Error:", error);
-        // Check if it's a Gemini safety block
-        const errorMsg = error.message?.includes('SAFETY')
-            ? "Hmm, topics thode heavy ho gaye. Chalo kuch aur baat karte hain?"
-            : "Oh.. sorry, network mein kuch gadbad lag rahi hai. Kya aap phir se bolenge?";
+        console.error("Critical Process Error:", error.message);
+
+        let errorMsg = "Hmm.. kuch network issue lag raha hai, but main sun raha hoon. Aap phir se bolo?";
+        if (error.message?.includes('SAFETY')) {
+            errorMsg = "Ye topic thoda heavy ho gaya.. chalo kuch aur baat karte hain? Kya chal raha hai?";
+        }
 
         twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, errorMsg);
         twiml.gather({
