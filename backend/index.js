@@ -10,16 +10,7 @@ app.use(express.json());
 
 const frontendOrigin = process.env.FRONTEND_ORIGIN || '*';
 app.use(cors({
-    origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl requests)
-        // or if it matches the frontend origin (ignoring trailing slash)
-        if (!origin || origin === frontendOrigin || origin === frontendOrigin.replace(/\/$/, '') || frontendOrigin === '*') {
-            callback(null, true);
-        } else {
-            console.log(`CORS blocked for origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
+    origin: true,
     credentials: true
 }));
 

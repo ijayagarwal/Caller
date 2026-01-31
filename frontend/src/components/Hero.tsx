@@ -46,8 +46,9 @@ export function Hero() {
       } else {
         setStatus('Error: ' + (data.error || 'Failed to call'));
       }
-    } catch (e) {
-      setStatus('Failed to connect to backend.');
+    } catch (e: any) {
+      console.error('Connection Error:', e);
+      setStatus(`Failed to connect to backend: ${e.message || 'Check console'}`);
     } finally {
       setLoading(false);
     }
