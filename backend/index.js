@@ -25,13 +25,10 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() 
 const sessions = {};
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    systemInstruction: "You are Kabir, a warm, empathetic urban Indian friend. You speak natural Hinglish (mix of Hindi and English). You are NOT an AI assistant; you are a caring companion. Use fillers like 'Hmm', 'Achha', 'Right', 'Understandable'. Use '...' for natural pauses. Never sound robotic."
-});
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // Verification log
-console.log("[System] Kabir (Gemini) initialized. Ready for calls.");
+console.log("[System] Neelam (Gemini) initialized. Ready for calls.");
 
 // 1. Trigger the call
 app.post('/api/call', async (req, res) => {
@@ -102,8 +99,8 @@ app.post('/voice', (req, res) => {
     const session = sessions[phone] || {};
 
     const greeting = session.isFollowUp
-        ? "Hey.. Main Kabir bol raha hoon base-ically check karne ke liye... kaise ho ab? Thoda better lag raha hai?"
-        : "Hi! Main Kabir bol raha hoon... Aaj mera dil kiya tumhe call karne ka, so... kaise ho? Sab theek?";
+        ? "Hey.. Neelam bol rahi hoon base-ically check karne ke liye... kaise ho ab? Thoda better lag raha hai?"
+        : "Hi! Main Neelam bol rahi hoon... Aaj mera dil kiya tumhe call karne ka, so... kaise ho? Sab theek?";
 
     twiml.pause({ length: 1 }); // Natural pause before speaking
     twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, greeting);
@@ -149,7 +146,7 @@ app.post('/process', async (req, res) => {
     // Diagnostic: Check for placeholder key
     if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes('REPLACE')) {
         console.error("[CRITICAL] Gemini API Key is missing or using placeholder value!");
-        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Maaf kijiye, mere dimag ka configuration incomplete hai. Aapka developer shayed API key bhul gaya.");
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Maaf kijiye, Neelam thodi confuse ho gayi hai configuration ki wajah se. Aapka developer shayed API key bhul gaya.");
         res.type('text/xml');
         return res.send(twiml.toString());
     }
@@ -158,20 +155,22 @@ app.post('/process', async (req, res) => {
         // Build history context
         const historyText = (sessions[phone].history || [])
             .slice(-6)
-            .map(h => `${h.role === 'user' ? 'User' : 'Kabir'}: ${h.content}`)
+            .map(h => `${h.role === 'user' ? 'User' : 'Neelam'}: ${h.content}`)
             .join('\n');
 
         const prompt = `
+SYSTEM: You are Neelam, a warm, empathetic urban Indian girl who speaks natural Hinglish. You are a caring friend, not an AI. Use fillers like 'Hmm', 'Achha', 'Right'. Use '...' for pauses.
+
 Context Memory:
 ${historyText}
 
 User just said: "${userSpeech}"
 
 Response Rules:
-1. Speak as Kabir (Urban Hinglish Friend). Natural blend of Hindi/English.
-2. Be brief (1-2 sentences). Use fillers and "...".
+1. Speak as Neelam. Natural blend of Hindi/English.
+2. Be brief (1-2 sentences).
 3. Detect user emotion: [sad, stressed, okay, happy].
-4. Format JSON: {"reply": "response contents", "emotion": "detected_emotion"}
+4. Format JSON ONLY: {"reply": "response content", "emotion": "emotion"}
 `;
 
         const result = await model.generateContent(prompt);
@@ -197,7 +196,7 @@ Response Rules:
         }
 
         // Log and update session
-        console.log(`[Kabir] Emotion: ${aiData.emotion} | Reply: ${aiData.reply}`);
+        console.log(`[Neelam] Emotion: ${aiData.emotion} | Reply: ${aiData.reply}`);
 
         sessions[phone].emotion = aiData.emotion;
         sessions[phone].history = sessions[phone].history || [];
