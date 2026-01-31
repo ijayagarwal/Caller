@@ -16,7 +16,7 @@ export function Hero() {
     if (!phoneNumber) return;
     setLoading(true);
     setStatus('Initiating call...');
-    const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim();
 
     if (!backendUrl && import.meta.env.PROD) {
       console.error('VITE_BACKEND_URL is not defined in production environment.');
