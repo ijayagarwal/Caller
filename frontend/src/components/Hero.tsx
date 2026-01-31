@@ -1,12 +1,38 @@
 import { Phone, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const COUNTRIES = [
+  { code: '+91', label: '🇮🇳 IN' },
+  { code: '+1', label: '🇺🇸 US' },
+  { code: '+44', label: '🇬🇧 UK' },
+  { code: '+971', label: '🇦🇪 UAE' },
+  { code: '+61', label: '🇦🇺 AU' },
+  { code: '+81', label: '🇯🇵 JP' },
+  { code: '+49', label: '🇩🇪 DE' },
+  { code: '+33', label: '🇫🇷 FR' },
+  { code: '+7', label: '🇷🇺 RU' },
+  { code: '+86', label: '🇨🇳 CN' },
+];
 
 export function Hero() {
   const [isDemoActive, setIsDemoActive] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [countryCode, setCountryCode] = useState('+91');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
+
+  // Auto-detect country code
+  useEffect(() => {
+    fetch('https://ipapi.co/json/')
+      .then(res => res.json())
+      .then(data => {
+        if (data.country_calling_code) {
+          setCountryCode(data.country_calling_code);
+        }
+      })
+      .catch(err => console.error('Failed to auto-detect country:', err));
+  }, []);
 
   const scrollToWaitlist = () => {
     document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
@@ -20,10 +46,11 @@ export function Hero() {
     const backendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/$/, '') || 'http://localhost:3000';
 
     try {
+      const fullPhoneNumber = `${countryCode}${phoneNumber.replace(/^\+/, '')}`;
       const response = await fetch(`${backendUrl}/api/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneNumber }),
+        body: JSON.stringify({ phone: fullPhoneNumber }),
       });
 
       const data = await response.json();
@@ -114,25 +141,36 @@ export function Hero() {
                   </motion.button>
                 </>
               ) : (
-                <div className="flex flex-col gap-2 w-full max-w-md">
-                  <div className="flex gap-2">
+                <div className="flex flex-col md:flex-row gap-2 w-full max-w-md">
+                  <div className="flex-1 flex gap-0 border-2 border-[#1a1f3a]/10 rounded-2xl overflow-hidden focus-within:border-[#a78bfa] transition-colors bg-white">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="px-3 py-4 bg-gray-50 border-r border-[#1a1f3a]/10 outline-none cursor-pointer hover:bg-gray-100 transition-colors appearance-none min-w-[100px]"
+                    >
+                      {COUNTRIES.map(c => (
+                        <option key={c.code} value={c.code}>{c.label} {c.code}</option>
+                      ))}
+                    </select>
                     <input
                       type="tel"
-                      placeholder="+1234567890"
-                      className="flex-1 px-4 py-4 rounded-2xl border-2 border-[#1a1f3a]/10 focus:border-[#a78bfa] outline-none transition-colors"
+                      placeholder="9876543210"
+                      className="flex-1 px-4 py-4 outline-none bg-transparent"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                     />
+                  </div>
+                  <div className="flex gap-2">
                     <button
                       onClick={handleCall}
                       disabled={loading}
-                      className="bg-[#1a1f3a] text-white px-6 py-4 rounded-2xl flex items-center gap-2 font-medium disabled:opacity-50"
+                      className="bg-[#1a1f3a] text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 font-medium disabled:opacity-50 min-w-[140px] hover:bg-[#2d3748] transition-colors"
                     >
                       {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Call Me'}
                     </button>
                     <button
                       onClick={() => setIsDemoActive(false)}
-                      className="px-4 py-4 text-gray-500 hover:text-gray-700"
+                      className="px-4 py-4 text-gray-500 hover:text-gray-700 font-medium"
                     >
                       Cancel
                     </button>
@@ -140,15 +178,6 @@ export function Hero() {
                   {status && <p className="text-sm border-l-4 border-[#a78bfa] bg-[#f8f7ff] p-3 text-[#1a1f3a] rounded-r-lg shadow-sm font-medium">{status}</p>}
                 </div>
               )}
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="flex flex-wrap gap-4 text-sm text-[#2d3748]"
-            >
-              <span className="flex items-center gap-1">✓ No spam, ever</span>
               <span>|</span>
               <span className="flex items-center gap-1">✓ Early access perks</span>
               <span>|</span>
@@ -236,6 +265,6 @@ export function Hero() {
           </motion.div>
         </div>
       </div>
-    </section>
+    </section >
   );
 }

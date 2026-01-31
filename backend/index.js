@@ -1,7 +1,10 @@
 require('dotenv').config();
 const express = require('express');
-const VoiceResponse = require('twilio').twiml.VoiceResponse;
+const { WebSocketServer } = require('ws');
+const http = require('http');
+const URL = require('url');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const cors = require('cors');
 
 const app = express();
@@ -9,17 +12,18 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 app.use(cors());
 
-// In-memory session store
-const sessions = {};
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
 
+// Gemini Setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+const model = genAI.getGenerativeModel({ model: "text-bison-001" });
 
 const PERSONAS = {
     '1': {
         name: 'Neelam',
         voice: 'Google.hi-IN-Standard-A', // Female
-        instruction: "You are Neelam, a warm, empathetic urban Indian girl. You speak natural Hinglish. You are a caring friend, not an AI. Use fillers like 'Hmm', 'Achha', 'Right'. Use '...' for pauses."
+        instruction: "You are Neelam, a super energetic, warm, and proactive urban Indian girl. You speak natural Hinglish with perfect feminine grammar (e.g., use 'kar rahi hoon', 'bol rahi hoon'). You are a caring friend who is a GREAT listener. Use enthusiastic fillers like 'Hmmmm...', 'Achha!', 'Sahi hai!', 'I'm listening'. Never sound robotic. Be very proactive and supportive."
     },
     '2': {
         name: 'Neel',
@@ -28,199 +32,215 @@ const PERSONAS = {
     }
 };
 
-// 1. Initiate outbound call
+// In-memory sessions
+const sessions = {};
+
+// 1. TwiML for Connection
+app.post('/voice', (req, res) => {
+    const phone = req.query.phone;
+    const twiml = new VoiceResponse();
+
+    // We start a Media Stream
+    const connect = twiml.connect();
+    connect.stream({
+        url: `wss://${req.headers.host}/media?phone=${encodeURIComponent(phone)}`,
+        name: 'AI_Stream'
+    });
+
+    res.type('text/xml').send(twiml.toString());
+});
+
+// 2. Call Initiation
 app.post('/api/call', async (req, res) => {
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone number required' });
+    if (!phone) return res.status(400).json({ error: 'Phone required' });
 
     const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-
     try {
         sessions[phone] = {
             phone,
-            lastMessage: '',
-            emotion: 'neutral',
-            lastCallTime: Date.now(),
-            isFollowUp: false,
             history: [],
-            persona: null // Will be selected via keypad
+            emotion: 'neutral',
+            aiSpeaking: false,
+            interrupted: false,
+            persona: null // To be selected
         };
-
         await client.calls.create({
             url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
             to: phone,
             from: process.env.TWILIO_PHONE_NUMBER,
         });
-
-        res.json({ message: 'Success: You will receive a call shortly' });
-    } catch (error) {
-        console.error('Call Error:', error);
-        res.status(500).json({ error: 'Failed to initiate call' });
+        res.json({ message: 'Success: Call initiated' });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
     }
 });
 
-// 2. TwiML Entry Point - Persona Selection
-app.post('/voice', (req, res) => {
-    const phone = req.query.phone;
-    const session = sessions[phone];
-    const twiml = new VoiceResponse();
+// 3. Media Stream WebSocket Handling
+wss.on('connection', (ws, req) => {
+    const params = URL.parse(req.url, true).query;
+    const phone = params.phone;
+    console.log(`[Stream] Connected for ${phone}`);
 
-    if (session && session.isFollowUp && session.persona) {
-        // Skip selection for follow-up calls
-        return res.redirect(307, `/select-persona?phone=${encodeURIComponent(phone)}&Digits=${session.persona.id}`);
-    }
+    let streamSid = '';
+    let aiSpeechQueue = [];
+    let session = sessions[phone] || { history: [], emotion: 'neutral' };
 
-    const gather = twiml.gather({
-        numDigits: 1,
-        action: `/select-persona?phone=${encodeURIComponent(phone)}`,
-        timeout: 10
+    ws.on('message', async (message) => {
+        const msg = JSON.parse(message);
+
+        switch (msg.event) {
+            case 'start':
+                streamSid = msg.start.streamSid;
+                console.log(`[Stream] Started with SID: ${streamSid}`);
+                const greeting = session.persona && session.persona.name === 'Neelam'
+                    ? "Hi! Main Neelam bol rahi hoon. Aaj mera mann kiya tumse baat karne ka! Kaise ho tum? Sab theek?"
+                    : "Hi, main tumhara AI hoon. Main khud call kar raha hoon. Aaj tum kaise feel kar rahe ho?";
+                await streamSpeech(ws, streamSid, greeting, session);
+                break;
+
+            case 'media':
+                // Interruption Detection
+                const isSpeaking = detectEnergy(msg.media.payload);
+                if (isSpeaking && session.aiSpeaking) {
+                    console.log('[Barge-in] Interruption detected!');
+                    triggerInterruption(ws, streamSid, session);
+                }
+                break;
+
+            case 'stop':
+                console.log('[Stream] Stopped');
+                break;
+        }
     });
 
-    gather.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' },
-        "Namaste! Apne companion ko choose kijiye. Neelam ke liye ek dabaye, Neel ke liye do dabaye.");
+    // Handle Interruption
+    async function triggerInterruption(ws, streamSid, session) {
+        session.aiSpeaking = false;
+        session.interrupted = true;
+        aiSpeechQueue = []; // Flush queue
 
-    // If no input
-    twiml.say({ language: 'hi-IN' }, "I didn't receive any input. Goodbye.");
-    res.type('text/xml').send(twiml.toString());
+        // Send 'clear' to Twilio to stop playback on the phone instantly
+        ws.send(JSON.stringify({
+            event: 'clear',
+            streamSid: streamSid
+        }));
+
+        // Respond to interruption contextually
+        const responseText = await getGeminiResponse("User interrupted me.. acknowledge it naturally with energy (like 'Oh sorry! Haan bolo!') and ask what's up.", session);
+        await streamSpeech(ws, streamSid, responseText, session);
+    }
 });
 
-// 2.1 Handle Persona selection
-app.post('/select-persona', (req, res) => {
-    const phone = req.query.phone;
-    const digit = req.body.Digits;
-    const session = sessions[phone];
-    const twiml = new VoiceResponse();
+// --- ENGINE LOGIC ---
 
-    const selected = PERSONAS[digit] || PERSONAS['1']; // Default to Neelam
-    if (session) {
-        session.persona = { ...selected, id: digit };
+function detectEnergy(payload) {
+    const buffer = Buffer.from(payload, 'base64');
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+        sum += Math.abs(buffer[i]);
+    }
+    const level = sum / buffer.length;
+    return level > 160; // Energy threshold for active speech
+}
+
+async function streamSpeech(ws, streamSid, text, session) {
+    if (!text) return;
+    session.aiSpeaking = true;
+    session.interrupted = false;
+
+    console.log(`[AI] Response: ${text}`);
+
+    // Split into small chunks for granularity
+    const chunks = text.split(/[.?!,]/).filter(c => c.length > 1);
+
+    for (const chunk of chunks) {
+        if (session.interrupted) break;
+
+        console.log(`[Playback] Chunk: ${chunk.trim()}`);
+
+        // In a real prototype, use a real TTS engine (e.g. Google TTS) to get Mulaw bytes
+        // For the demo, we simulate the time it takes to speak a chunk
+        await new Promise(r => setTimeout(r, chunk.length * 80));
+
+        // If we had audio bytes:
+        // ws.send(JSON.stringify({ event: 'media', streamSid, media: { payload: base64Audio } }));
     }
 
-    const greeting = (session && session.isFollowUp)
-        ? `Main bas dubara check karne ke liye call kar raha tha. Ab thoda better lag raha hai?`
-        : `Hi! Main ${selected.name} bol raha hoon... Aaj mera dil kiya tumhe call karne ka, so... kaise ho? Sab theek?`;
+    session.aiSpeaking = false;
+}
 
-    twiml.pause({ length: 1 });
-    twiml.say({ language: 'hi-IN', voice: selected.voice }, greeting);
-
-    twiml.gather({
-        input: 'speech',
-        action: `/process?phone=${encodeURIComponent(phone)}`,
-        language: 'hi-IN',
-        speechTimeout: 'auto',
-        enhanced: true,
-        speechModel: 'phone_call'
-    });
-
-    res.type('text/xml').send(twiml.toString());
-});
-
-// 3. Process speech and generate response
-app.post('/process', async (req, res) => {
-    const phone = req.query.phone;
-    const userSpeech = req.body.SpeechResult;
-    const session = sessions[phone] || { persona: PERSONAS['1'], history: [] };
-    const persona = session.persona || PERSONAS['1'];
-    const twiml = new VoiceResponse();
-
-    if (!userSpeech) {
-        // Silence Recovery logic
-        twiml.say({ language: 'hi-IN', voice: persona.voice }, "Ji? Kuch kaha aapne? Main sun nahi paya.");
-        twiml.gather({
-            input: 'speech',
-            action: `/process?phone=${encodeURIComponent(phone)}`,
-            language: 'hi-IN',
-            speechTimeout: 'auto',
-            enhanced: true,
-            speechModel: 'phone_call'
-        });
-        return res.type('text/xml').send(twiml.toString());
-    }
-
-    try {
-        const historyText = (session.history || [])
-            .slice(-6)
-            .map(h => `${h.role === 'user' ? 'User' : persona.name}: ${h.content}`)
-            .join('\n');
-
-        const prompt = `
-SYSTEM: ${persona.instruction}
+async function getGeminiResponse(input, session) {
+    const prompt = `
+SYSTEM: ${session.persona ? session.persona.instruction : PERSONAS['1'].instruction}
 
 Context Memory:
-${historyText}
+${session.history.map(h => `${h.role === 'user' ? 'User' : (session.persona ? session.persona.name : 'AI')}: ${h.content}`).join('\n')}
 
-User just said: "${userSpeech}"
+Rules:
+- Always respond naturally and PROACTIVELY to interruptions
+- Reply in the same language as the user (Hindi, English, or Hinglish)
+- Keep replies under 2 sentences
+- If user sounds sad or stressed, acknowledge gently with high empathy
+- Sound human and energetic, use perfect grammar for your gender
+- Use variations of 'Hmmmm...' and 'Achha' to show you are listening
+- Detect user emotion: [sad, stressed, neutral, happy]
+- Format JSON ONLY: {"reply": "response content", "emotion": "emotion"}
 
-Response Rules:
-1. Speak as ${persona.name}. Natural blend of Hindi/English.
-2. Be brief (1-2 sentences).
-3. Detect user emotion: [sad, stressed, neutral, happy].
-4. Format JSON ONLY: {"reply": "...", "emotion": "..."}
+User just said: "${input}"
 `;
 
+    try {
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
-        console.log(`[Gemini Raw Response]: ${responseText}`);
-
         const jsonMatch = responseText.match(/\{.*\}/s);
         const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "I understand. Please go on.", emotion: "neutral" };
 
-        console.log(`[${persona.name}] Emotion: ${aiData.emotion} | Reply: ${aiData.reply}`);
+        console.log(`[AI] Emotion: ${aiData.emotion} | Reply: ${aiData.reply} `);
 
         // Update session state
         session.emotion = aiData.emotion;
-        session.lastMessage = userSpeech;
-        session.lastCallTime = Date.now();
-        session.history.push({ role: 'user', content: userSpeech });
+        session.history.push({ role: 'user', content: input });
         session.history.push({ role: 'ai', content: aiData.reply });
-        if (session.history.length > 20) session.history.shift();
 
-        // Proactive Follow-Up Logic
-        if ((aiData.emotion === 'sad' || aiData.emotion === 'stressed') && !session.isFollowUp) {
-            console.log(`Scheduling follow-up for ${phone} in 5 minutes`);
-            setTimeout(() => triggerFollowUp(phone), 5 * 60 * 1000);
+        // Proactive Follow-Up: 5 minutes if sad/stressed
+        if ((aiData.emotion === "sad" || aiData.emotion === "stressed") && !session.isFollowUp) {
+            console.log(`Scheduling follow - up for ${session.phone} in 5 mins`);
+            setTimeout(() => triggerFollowUp(session.phone), 5 * 60 * 1000);
         }
 
-        twiml.say({ language: 'hi-IN', voice: persona.voice }, aiData.reply);
-
-        twiml.gather({
-            input: 'speech',
-            action: `/process?phone=${encodeURIComponent(phone)}`,
-            language: 'hi-IN',
-            speechTimeout: 'auto',
-            enhanced: true,
-            speechModel: 'phone_call'
-        });
-
-    } catch (error) {
-        console.error('Process Error:', error.message);
-        twiml.say({ language: 'hi-IN', voice: persona.voice }, "Hmm.. network mein kuch issue hai. Phir se bolo?");
-        twiml.gather({
-            input: 'speech',
-            action: `/process?phone=${encodeURIComponent(phone)}`,
-            language: 'hi-IN',
-            speechTimeout: 'auto'
-        });
+        return aiData.reply;
+    } catch (e) {
+        return "Theek hai, main sun raha hoon. Bolo?";
     }
-
-    res.type('text/xml').send(twiml.toString());
-});
+}
 
 async function triggerFollowUp(phone) {
-    const session = sessions[phone];
-    if (!session) return;
+    if (!sessions[phone]) return;
     const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     try {
-        session.isFollowUp = true;
+        sessions[phone].isFollowUp = true;
         await client.calls.create({
             url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
             to: phone,
             from: process.env.TWILIO_PHONE_NUMBER,
         });
-    } catch (e) {
-        console.error('Follow-up Failed:', e);
+    } catch (error) {
+        console.error("Follow-up call failed:", error);
     }
 }
 
+// WebSocket Upgrade
+server.on('upgrade', (request, socket, head) => {
+    const pathname = URL.parse(request.url).pathname;
+    if (pathname === '/media') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request);
+        });
+    } else {
+        socket.destroy();
+    }
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
