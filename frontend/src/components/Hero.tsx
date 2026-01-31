@@ -15,27 +15,58 @@ export function Hero() {
   const handleCall = async () => {
     if (!phoneNumber) return;
     setLoading(true);
-    setStatus('Initiating call...');
-    const backendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim();
+    setStatus('Analyzing environment...');
 
-    if (!backendUrl && import.meta.env.PROD) {
-      console.error('VITE_BACKEND_URL is not defined in production environment.');
-      setStatus('Configuration error: Backend URL missing.');
+    // 1. Diagnostic Data
+    const envUrl = import.meta.env.VITE_BACKEND_URL;
+    const isProd = import.meta.env.PROD;
+    const backendUrl = (envUrl || '').trim();
+
+    console.log('--- Diagnostic Report ---');
+    console.log('Environment:', isProd ? 'Production' : 'Development');
+    console.log('VITE_BACKEND_URL (Raw):', envUrl ? 'Detected' : 'MISSING');
+
+    if (!backendUrl && isProd) {
+      const msg = 'CRITICAL: VITE_BACKEND_URL is missing in Vercel settings. Please add it and REDEPLOY.';
+      setStatus(msg);
       setLoading(false);
       return;
     }
 
-    // Fallback for local dev if VITE_BACKEND_URL is somehow missing from .env
     const finalBackendUrl = backendUrl.replace(/\/$/, '') || 'http://localhost:3000';
-    console.log(`Connecting to backend at: ${finalBackendUrl}`);
+
+    // 2. Protocol Check (Mixed Content Prevention)
+    if (window.location.protocol === 'https:' && finalBackendUrl.startsWith('http:')) {
+      if (!finalBackendUrl.includes('localhost')) {
+        const msg = 'Security Error: Cannot call HTTP backend from HTTPS site. Update Render URL to use https://';
+        setStatus(msg);
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
+      // 3. Health Ping
+      setStatus('Pinging backend server...');
+      const healthCheck = await fetch(`${finalBackendUrl}/health`).catch(e => {
+        console.error('Ping failed:', e);
+        return { ok: false, statusText: e.message };
+      });
+
+      if (!healthCheck.ok) {
+        throw new Error(`Server at ${finalBackendUrl} is unreachable. It may be sleeping or down.`);
+      }
+
+      // 4. Actual Call Request
+      setStatus('Requesting call...');
       const response = await fetch(`${finalBackendUrl}/api/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phoneNumber }),
       });
-      const data = await response.json();
+
+      const data = await response.json().catch(() => ({}));
+
       if (response.ok) {
         setStatus('Success! You will receive a call shortly.');
         setTimeout(() => {
@@ -44,11 +75,19 @@ export function Hero() {
           setStatus('');
         }, 5000);
       } else {
-        setStatus('Error: ' + (data.error || 'Failed to call'));
+        throw new Error(data.error || `Server responded with ${response.status}`);
       }
+
     } catch (e: any) {
-      console.error('Connection Error:', e);
-      setStatus(`Failed to connect to backend: ${e.message || 'Check console'}`);
+      console.error('--- Final Error Log ---');
+      console.error(e);
+
+      let friendlyMessage = e.message;
+      if (e.message.includes('Failed to fetch')) {
+        friendlyMessage = `Network Error: Request blocked. If site is HTTPS, the backend URL MUST start with https://`;
+      }
+
+      setStatus(`Diagnostic Failure: ${friendlyMessage}`);
     } finally {
       setLoading(false);
     }
@@ -146,7 +185,7 @@ export function Hero() {
                       Cancel
                     </button>
                   </div>
-                  {status && <p className="text-sm text-[#2d3748] px-2">{status}</p>}
+                  {status && <p className="text-sm border-l-4 border-[#a78bfa] bg-[#f8f7ff] p-3 text-[#1a1f3a] rounded-r-lg shadow-sm font-medium">{status}</p>}
                 </div>
               )}
             </motion.div>
