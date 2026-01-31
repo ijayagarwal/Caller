@@ -25,7 +25,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() 
 const sessions = {};
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
 
 // Verification log
 console.log("[System] Neelam (Gemini) initialized. Ready for calls.");
