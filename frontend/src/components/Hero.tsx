@@ -141,41 +141,59 @@ export function Hero() {
                   </motion.button>
                 </>
               ) : (
-                <div className="flex flex-col md:flex-row gap-2 w-full max-w-md">
-                  <div className="flex-1 flex gap-0 border-2 border-[#1a1f3a]/10 rounded-2xl overflow-hidden focus-within:border-[#a78bfa] transition-colors bg-white">
-                    <select
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                      className="px-3 py-4 bg-gray-50 border-r border-[#1a1f3a]/10 outline-none cursor-pointer hover:bg-gray-100 transition-colors appearance-none min-w-[100px]"
-                    >
-                      {COUNTRIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.label} {c.code}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="tel"
-                      placeholder="9876543210"
-                      className="flex-1 px-4 py-4 outline-none bg-transparent"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
+                <div className="flex flex-col gap-4 w-full max-w-md">
+                  <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex-1 flex gap-0 border-2 border-[#1a1f3a]/10 rounded-2xl overflow-hidden focus-within:border-[#a78bfa] focus-within:ring-4 focus-within:ring-[#a78bfa]/10 transition-all bg-white shadow-sm">
+                      <select
+                        value={countryCode}
+                        onChange={(e) => setCountryCode(e.target.value)}
+                        className="px-3 py-4 bg-gray-50/50 border-r border-[#1a1f3a]/10 outline-none cursor-pointer hover:bg-gray-100/50 transition-colors appearance-none min-w-[90px] text-[#1a1f3a] font-medium"
+                      >
+                        {COUNTRIES.map(c => (
+                          <option key={c.code} value={c.code}>{c.label} {c.code}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="tel"
+                        placeholder="9876543210"
+                        className="flex-1 px-4 py-4 outline-none bg-transparent text-[#1a1f3a] placeholder:text-gray-400 font-medium"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                      />
+                    </div>
+                    <motion.button
                       onClick={handleCall}
                       disabled={loading}
-                      className="bg-[#1a1f3a] text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 font-medium disabled:opacity-50 min-w-[140px] hover:bg-[#2d3748] transition-colors"
+                      whileHover={{ y: -2, boxShadow: '0 10px 20px rgba(26, 31, 58, 0.2)' }}
+                      whileTap={{ scale: 0.98 }}
+                      className="bg-[#1a1f3a] text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 font-semibold disabled:opacity-50 min-w-[140px] transition-all"
                     >
-                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Call Me'}
-                    </button>
+                      {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (
+                        <>
+                          Call Me
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </motion.button>
+                  </div>
+                  <div className="flex items-center justify-between px-2">
+                    {status ? (
+                      <motion.p
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="text-sm font-medium text-[#a78bfa] flex items-center gap-2"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-[#a78bfa] animate-pulse" />
+                        {status}
+                      </motion.p>
+                    ) : <div />}
                     <button
                       onClick={() => setIsDemoActive(false)}
-                      className="px-4 py-4 text-gray-500 hover:text-gray-700 font-medium"
+                      className="text-sm text-gray-500 hover:text-[#1a1f3a] font-medium transition-colors"
                     >
                       Cancel
                     </button>
                   </div>
-                  {status && <p className="text-sm border-l-4 border-[#a78bfa] bg-[#f8f7ff] p-3 text-[#1a1f3a] rounded-r-lg shadow-sm font-medium">{status}</p>}
                 </div>
               )}
               <span>|</span>

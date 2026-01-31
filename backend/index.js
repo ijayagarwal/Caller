@@ -35,12 +35,40 @@ const PERSONAS = {
 // In-memory sessions
 const sessions = {};
 
-// 1. TwiML for Connection
+// 1. Initial TwiML - Persona Selection
 app.post('/voice', (req, res) => {
     const phone = req.query.phone;
+    console.log(`[Twilio] Call received for ${phone}`);
     const twiml = new VoiceResponse();
 
-    // We start a Media Stream
+    const gather = twiml.gather({
+        numDigits: 1,
+        action: `/select-persona?phone=${encodeURIComponent(phone)}`,
+        timeout: 10
+    });
+
+    gather.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' },
+        "Namaste! Apne companion ko choose kijiye. Neelam ke liye ek dabaye, Neel ke liye do dabaye.");
+
+    // Fallback if no input
+    twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Hume koi input nahi mila. Neelam ko default companion choose kiya jaa raha hai.");
+    twiml.redirect(`/select-persona?phone=${encodeURIComponent(phone)}&Digits=1`);
+
+    res.type('text/xml').send(twiml.toString());
+});
+
+// 2. Select Persona & Start Stream
+app.post('/select-persona', (req, res) => {
+    const phone = req.query.phone;
+    const digit = req.body.Digits || '1';
+    console.log(`[Twilio] Persona ${digit} selected for ${phone}`);
+
+    const session = sessions[phone];
+    if (session) {
+        session.persona = PERSONAS[digit] || PERSONAS['1'];
+    }
+
+    const twiml = new VoiceResponse();
     const connect = twiml.connect();
     connect.stream({
         url: `wss://${req.headers.host}/media?phone=${encodeURIComponent(phone)}`,
@@ -92,30 +120,36 @@ wss.on('connection', (ws, req) => {
         switch (msg.event) {
             case 'start':
                 streamSid = msg.start.streamSid;
-                console.log(`[Stream] Started with SID: ${streamSid}`);
+                console.log(`[Stream] Started with SID: ${streamSid} for ${phone}`);
                 const greeting = session.persona && session.persona.name === 'Neelam'
                     ? "Hi! Main Neelam bol rahi hoon. Aaj mera mann kiya tumse baat karne ka! Kaise ho tum? Sab theek?"
                     : "Hi, main tumhara AI hoon. Main khud call kar raha hoon. Aaj tum kaise feel kar rahe ho?";
+                console.log(`[AI] Dispatching greeting: "${greeting}"`);
                 await streamSpeech(ws, streamSid, greeting, session);
                 break;
 
             case 'media':
                 // Interruption Detection
-                const isSpeaking = detectEnergy(msg.media.payload);
-                if (isSpeaking && session.aiSpeaking) {
-                    console.log('[Barge-in] Interruption detected!');
-                    triggerInterruption(ws, streamSid, session);
+                try {
+                    const isSpeaking = detectEnergy(msg.media.payload);
+                    if (isSpeaking && session.aiSpeaking) {
+                        console.log('[Barge-in] Speech energy detected! Stopping AI...');
+                        triggerInterruption(ws, streamSid, session);
+                    }
+                } catch (err) {
+                    console.error('[Error] Media processing error:', err.message);
                 }
                 break;
 
             case 'stop':
-                console.log('[Stream] Stopped');
+                console.log(`[Stream] Connection closed for ${phone}`);
                 break;
         }
     });
 
     // Handle Interruption
     async function triggerInterruption(ws, streamSid, session) {
+        console.log('[Interruption] Triggering flush and contextual response...');
         session.aiSpeaking = false;
         session.interrupted = true;
         aiSpeechQueue = []; // Flush queue
@@ -128,6 +162,7 @@ wss.on('connection', (ws, req) => {
 
         // Respond to interruption contextually
         const responseText = await getGeminiResponse("User interrupted me.. acknowledge it naturally with energy (like 'Oh sorry! Haan bolo!') and ask what's up.", session);
+        console.log(`[AI] Reactive response: "${responseText}"`);
         await streamSpeech(ws, streamSid, responseText, session);
     }
 });
@@ -149,10 +184,11 @@ async function streamSpeech(ws, streamSid, text, session) {
     session.aiSpeaking = true;
     session.interrupted = false;
 
-    console.log(`[AI] Response: ${text}`);
+    console.log(`[AI] Response being processed for streaming: "${text}"`);
 
     // Split into small chunks for granularity
     const chunks = text.split(/[.?!,]/).filter(c => c.length > 1);
+    console.log(`[TTS] Audio split into ${chunks.length} segments`);
 
     for (const chunk of chunks) {
         if (session.interrupted) break;
@@ -191,12 +227,15 @@ User just said: "${input}"
 `;
 
     try {
+        console.log(`[Gemini] Sending prompt to ${model.model}...`);
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
+        console.log(`[Gemini] Raw Response: ${responseText}`);
+
         const jsonMatch = responseText.match(/\{.*\}/s);
         const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "I understand. Please go on.", emotion: "neutral" };
 
-        console.log(`[AI] Emotion: ${aiData.emotion} | Reply: ${aiData.reply} `);
+        console.log(`[AI] Stage: Emotion=${aiData.emotion} | Reply="${aiData.reply}"`);
 
         // Update session state
         session.emotion = aiData.emotion;
@@ -205,12 +244,13 @@ User just said: "${input}"
 
         // Proactive Follow-Up: 5 minutes if sad/stressed
         if ((aiData.emotion === "sad" || aiData.emotion === "stressed") && !session.isFollowUp) {
-            console.log(`Scheduling follow - up for ${session.phone} in 5 mins`);
+            console.log(`[Proactive] Scheduling follow-up call for ${session.phone} in 5 mins due to ${aiData.emotion} state`);
             setTimeout(() => triggerFollowUp(session.phone), 5 * 60 * 1000);
         }
 
         return aiData.reply;
     } catch (e) {
+        console.error(`[Error] Gemini generation failed: ${e.message}`);
         return "Theek hai, main sun raha hoon. Bolo?";
     }
 }
