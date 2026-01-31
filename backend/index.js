@@ -164,10 +164,26 @@ Response Rules:
 `;
 
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
+        const response = await result.response;
+        const responseText = response.text();
 
-        const jsonMatch = responseText.match(/\{.*\}/s);
-        const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "I understand.. tension mat lo.", emotion: "okay" };
+        console.log(`[Gemini Raw Response]: ${responseText}`);
+
+        let aiData;
+        try {
+            const jsonMatch = responseText.match(/\{.*\}/s);
+            if (jsonMatch) {
+                aiData = JSON.parse(jsonMatch[0]);
+            } else {
+                throw new Error("No JSON found in response");
+            }
+        } catch (parseError) {
+            console.error("[JSON Parse Error]:", parseError.message);
+            aiData = {
+                reply: "I understand.. thoda network issue hai, but main sun raha hoon. Aap continue kijiye.",
+                emotion: "okay"
+            };
+        }
 
         // Log and update session
         console.log(`[Kabir] Emotion: ${aiData.emotion} | Reply: ${aiData.reply}`);
@@ -197,13 +213,20 @@ Response Rules:
         });
 
     } catch (error) {
-        console.error("Gemini/Process Error:", error);
-        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Oh.. sorry, network mein kuch gadbad lag rahi hai. Kya aap phir se bolenge?");
+        console.error("Critical Process Error:", error);
+        // Check if it's a Gemini safety block
+        const errorMsg = error.message?.includes('SAFETY')
+            ? "Hmm, topics thode heavy ho gaye. Chalo kuch aur baat karte hain?"
+            : "Oh.. sorry, network mein kuch gadbad lag rahi hai. Kya aap phir se bolenge?";
+
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, errorMsg);
         twiml.gather({
             input: 'speech',
             action: `/process?phone=${encodeURIComponent(phone)}`,
             language: 'hi-IN',
-            speechTimeout: 'auto'
+            speechTimeout: 'auto',
+            enhanced: true,
+            speechModel: 'phone_call'
         });
     }
 
