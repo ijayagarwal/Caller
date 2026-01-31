@@ -110,6 +110,8 @@ app.post('/voice', (req, res) => {
         action: `/process?phone=${encodeURIComponent(phone)}`,
         language: 'hi-IN',
         speechTimeout: 'auto',
+        enhanced: true,
+        speechModel: 'phone_call'
     });
 
     res.type('text/xml');
@@ -127,7 +129,16 @@ app.post('/process', async (req, res) => {
     }
 
     if (!userSpeech) {
-        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Hmm.. I didn't catch that. Phir milte hain. Bye.");
+        // If silence, ask again instead of hanging up
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Ji? Kuch kaha aapne? Main sun nahi paya.");
+        twiml.gather({
+            input: 'speech',
+            action: `/process?phone=${encodeURIComponent(phone)}`,
+            language: 'hi-IN',
+            speechTimeout: 'auto',
+            enhanced: true,
+            speechModel: 'phone_call'
+        });
         res.type('text/xml');
         return res.send(twiml.toString());
     }
@@ -181,11 +192,19 @@ Response Rules:
             action: `/process?phone=${encodeURIComponent(phone)}`,
             language: 'hi-IN',
             speechTimeout: 'auto',
+            enhanced: true,
+            speechModel: 'phone_call'
         });
 
     } catch (error) {
-        console.error("Gemini Error:", error);
-        twiml.say({ language: 'hi-IN' }, "Maaf kijiye, kuch error aa gaya. Bye.");
+        console.error("Gemini/Process Error:", error);
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Oh.. sorry, network mein kuch gadbad lag rahi hai. Kya aap phir se bolenge?");
+        twiml.gather({
+            input: 'speech',
+            action: `/process?phone=${encodeURIComponent(phone)}`,
+            language: 'hi-IN',
+            speechTimeout: 'auto'
+        });
     }
 
     res.type('text/xml');
