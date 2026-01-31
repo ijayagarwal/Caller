@@ -120,6 +120,7 @@ app.post('/voice', (req, res) => {
 app.post('/process', async (req, res) => {
     const phone = req.query.phone;
     const userSpeech = req.body.SpeechResult;
+    const twiml = new VoiceResponse();
     // Ensure session exists
     if (!sessions[phone]) {
         sessions[phone] = { emotion: 'okay', history: [] };
