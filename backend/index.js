@@ -6,6 +6,8 @@ const URL = require('url');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const cors = require('cors');
+const speech = require('@google-cloud/speech');
+const textToSpeech = require('@google-cloud/text-to-speech');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
@@ -15,15 +17,18 @@ app.use(cors());
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
-// Gemini Setup
+// Google Cloud Setup
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "text-bison-001" });
 
+const speechClient = new speech.SpeechClient();
+const ttsClient = new textToSpeech.TextToSpeechClient();
+
 const PERSONAS = {
     '1': {
-        name: 'Neelam',
+        name: 'Neelum',
         voice: 'Google.hi-IN-Standard-A', // Female
-        instruction: "You are Neelam, a super energetic, warm, and proactive urban Indian girl. You speak natural Hinglish with perfect feminine grammar (e.g., use 'kar rahi hoon', 'bol rahi hoon'). You are a caring friend who is a GREAT listener. Use enthusiastic fillers like 'Hmmmm...', 'Achha!', 'Sahi hai!', 'I'm listening'. Never sound robotic. Be very proactive and supportive."
+        instruction: "You are Neelum (pronounced Neelum), a super energetic, warm, and proactive urban Indian girl. You speak natural Hinglish with perfect feminine grammar (e.g., use 'kar rahi hoon', 'bol rahi hoon'). You are a caring friend who is a GREAT listener. Use enthusiastic fillers like 'Hmmmm...', 'Achha!', 'Sahi hai!', 'I'm listening'. Never sound robotic. Be very proactive and supportive."
     },
     '2': {
         name: 'Neel',
@@ -48,10 +53,10 @@ app.post('/voice', (req, res) => {
     });
 
     gather.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' },
-        "Namaste! Apne companion ko choose kijiye. Neelam ke liye ek dabaye, Neel ke liye do dabaye.");
+        "Namaste! Apne companion ko choose kijiye. Neelum ke liye ek dabaye, Neel ke liye do dabaye.");
 
     // Fallback if no input
-    twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Hume koi input nahi mila. Neelam ko default companion choose kiya jaa raha hai.");
+    twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Hume koi input nahi mila. Neelum ko default companion choose kiya jaa raha hai.");
     twiml.redirect(`/select-persona?phone=${encodeURIComponent(phone)}&Digits=1`);
 
     res.type('text/xml').send(twiml.toString());
@@ -111,8 +116,8 @@ wss.on('connection', (ws, req) => {
     console.log(`[Stream] Connected for ${phone}`);
 
     let streamSid = '';
-    let aiSpeechQueue = [];
     let session = sessions[phone] || { history: [], emotion: 'neutral' };
+    let recognizeStream = null;
 
     ws.on('message', async (message) => {
         const msg = JSON.parse(message);
@@ -121,14 +126,43 @@ wss.on('connection', (ws, req) => {
             case 'start':
                 streamSid = msg.start.streamSid;
                 console.log(`[Stream] Started with SID: ${streamSid} for ${phone}`);
-                const greeting = session.persona && session.persona.name === 'Neelam'
-                    ? "Hi! Main Neelam bol rahi hoon. Aaj mera mann kiya tumse baat karne ka! Kaise ho tum? Sab theek?"
+
+                // Initialize STT Stream
+                recognizeStream = speechClient
+                    .streamingRecognize({
+                        config: {
+                            encoding: 'MULAW',
+                            sampleRateHertz: 8000,
+                            languageCode: 'hi-IN',
+                            alternativeLanguageCodes: ['en-IN'],
+                        },
+                        interimResults: true,
+                    })
+                    .on('data', async (data) => {
+                        const transcript = data.results[0].alternatives[0].transcript;
+                        console.log(`[User] ${transcript}`);
+
+                        if (data.results[0].isFinal) {
+                            console.log(`[Transcription] Final: "${transcript}"`);
+                            const responseText = await getGeminiResponse(transcript, session);
+                            await streamSpeech(ws, streamSid, responseText, session);
+                        }
+                    })
+                    .on('error', (err) => console.error('[STT Error]', err));
+
+                const greeting = session.persona && session.persona.name === 'Neelum'
+                    ? "Hi! Main Neelum bol rahi hoon. Aaj mera mann kiya tumse baat karne ka! Kaise ho tum? Sab theek?"
                     : "Hi, main tumhara AI hoon. Main khud call kar raha hoon. Aaj tum kaise feel kar rahe ho?";
                 console.log(`[AI] Dispatching greeting: "${greeting}"`);
                 await streamSpeech(ws, streamSid, greeting, session);
                 break;
 
             case 'media':
+                // Pipe audio to STT
+                if (recognizeStream) {
+                    recognizeStream.write(Buffer.from(msg.media.payload, 'base64'));
+                }
+
                 // Interruption Detection
                 try {
                     const isSpeaking = detectEnergy(msg.media.payload);
@@ -143,6 +177,9 @@ wss.on('connection', (ws, req) => {
 
             case 'stop':
                 console.log(`[Stream] Connection closed for ${phone}`);
+                if (recognizeStream) {
+                    recognizeStream.destroy();
+                }
                 break;
         }
     });
@@ -193,14 +230,35 @@ async function streamSpeech(ws, streamSid, text, session) {
     for (const chunk of chunks) {
         if (session.interrupted) break;
 
-        console.log(`[Playback] Chunk: ${chunk.trim()}`);
+        console.log(`[TTS] Speaking: "${chunk.trim()}"`);
 
-        // In a real prototype, use a real TTS engine (e.g. Google TTS) to get Mulaw bytes
-        // For the demo, we simulate the time it takes to speak a chunk
-        await new Promise(r => setTimeout(r, chunk.length * 80));
+        try {
+            const [response] = await ttsClient.synthesizeSpeech({
+                input: { text: chunk.trim() },
+                voice: {
+                    languageCode: 'hi-IN',
+                    name: session.persona?.name === 'Neelum' ? 'hi-IN-Standard-A' : 'hi-IN-Standard-B'
+                },
+                audioConfig: {
+                    audioEncoding: 'MULAW',
+                    sampleRateHertz: 8000
+                },
+            });
 
-        // If we had audio bytes:
-        // ws.send(JSON.stringify({ event: 'media', streamSid, media: { payload: base64Audio } }));
+            if (!session.interrupted) {
+                ws.send(JSON.stringify({
+                    event: 'media',
+                    streamSid,
+                    media: {
+                        payload: Buffer.from(response.audioContent).toString('base64')
+                    }
+                }));
+                // Wait for audio duration roughly
+                await new Promise(r => setTimeout(r, chunk.length * 100));
+            }
+        } catch (err) {
+            console.error('[TTS Error]', err.message);
+        }
     }
 
     session.aiSpeaking = false;
