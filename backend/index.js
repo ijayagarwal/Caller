@@ -25,7 +25,10 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() 
 const sessions = {};
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: "You are Kabir, a warm, empathetic urban Indian friend. You speak natural Hinglish (mix of Hindi and English). You are NOT an AI assistant; you are a caring companion. Use fillers like 'Hmm', 'Achha', 'Right', 'Understandable'. Use '...' for natural pauses. Never sound robotic."
+});
 
 // 1. Trigger the call
 app.post('/api/call', async (req, res) => {
@@ -59,7 +62,8 @@ app.post('/api/call', async (req, res) => {
         sessions[phone] = {
             emotion: 'okay',
             lastCallTime: Date.now(),
-            isFollowUp: false
+            isFollowUp: false,
+            history: [] // Added for conversational memory
         };
 
         console.log(`[Twilio] Creating call using From: ${twilioPhone}, URL: ${publicUrl}/voice`);
@@ -95,10 +99,11 @@ app.post('/voice', (req, res) => {
     const session = sessions[phone] || {};
 
     const greeting = session.isFollowUp
-        ? "Main wapas call kar raha tha bas check karne ke liye. Ab thoda better lag raha hai?"
-        : "Hi, main tumhara AI hoon. Main khud call kar raha hoon. Aaj tum kaise feel kar rahe ho?";
+        ? "Hey.. Main Kabir bol raha hoon base-ically check karne ke liye... kaise ho ab? Thoda better lag raha hai?"
+        : "Hi! Main Kabir bol raha hoon... Aaj mera dil kiya tumhe call karne ka, so... kaise ho? Sab theek?";
 
-    twiml.say({ language: 'hi-IN' }, greeting);
+    twiml.pause({ length: 1 }); // Natural pause before speaking
+    twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, greeting);
 
     twiml.gather({
         input: 'speech',
@@ -115,49 +120,59 @@ app.post('/voice', (req, res) => {
 app.post('/process', async (req, res) => {
     const phone = req.query.phone;
     const userSpeech = req.body.SpeechResult;
-    const twiml = new VoiceResponse();
+    // Ensure session exists
+    if (!sessions[phone]) {
+        sessions[phone] = { emotion: 'okay', history: [] };
+    }
 
     if (!userSpeech) {
-        twiml.say({ language: 'hi-IN' }, "I didn't catch that. Phir milte hain. Goodbye.");
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Hmm.. I didn't catch that. Phir milte hain. Bye.");
         res.type('text/xml');
         return res.send(twiml.toString());
     }
 
     try {
-        const prompt = `
-You are a caring AI calling a human proactively. 
-The user may speak in Hindi, English, or Hinglish.
-Rules:
-- Reply in the SAME language and style as the user.
-- Be warm, friendly, and emotionally aware.
-- Detect emotional state of the user from their speech. Choose exactly one: [sad, stressed, okay, happy].
-- Keep replies under 2 sentences.
-- Format your response as JSON: {"reply": "the response", "emotion": "the detected emotion"}
+        // Build history context
+        const historyText = (sessions[phone].history || [])
+            .slice(-6)
+            .map(h => `${h.role === 'user' ? 'User' : 'Kabir'}: ${h.content}`)
+            .join('\n');
 
-User said: "${userSpeech}"
+        const prompt = `
+Context Memory:
+${historyText}
+
+User just said: "${userSpeech}"
+
+Response Rules:
+1. Speak as Kabir (Urban Hinglish Friend). Natural blend of Hindi/English.
+2. Be brief (1-2 sentences). Use fillers and "...".
+3. Detect user emotion: [sad, stressed, okay, happy].
+4. Format JSON: {"reply": "response contents", "emotion": "detected_emotion"}
 `;
 
         const result = await model.generateContent(prompt);
         const responseText = result.response.text();
 
-        // Basic JSON extraction as Gemini might wrap in markdown
         const jsonMatch = responseText.match(/\{.*\}/s);
-        const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "Theek hai, dhanyawad.", emotion: "okay" };
+        const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "I understand.. tension mat lo.", emotion: "okay" };
 
-        // Store state
-        if (sessions[phone]) {
-            sessions[phone].emotion = aiData.emotion;
-            sessions[phone].lastMessage = userSpeech;
-            sessions[phone].lastCallTime = Date.now();
+        // Log and update session
+        console.log(`[Kabir] Emotion: ${aiData.emotion} | Reply: ${aiData.reply}`);
 
-            // 4. Proactive Follow-Up Logic
-            if ((aiData.emotion === 'sad' || aiData.emotion === 'stressed') && !sessions[phone].isFollowUp) {
-                console.log(`Scheduling follow-up for ${phone} in 5 minutes due to emotion: ${aiData.emotion}`);
-                setTimeout(() => triggerFollowUp(phone), 5 * 60 * 1000);
-            }
+        sessions[phone].emotion = aiData.emotion;
+        sessions[phone].history = sessions[phone].history || [];
+        sessions[phone].history.push({ role: 'user', content: userSpeech });
+        sessions[phone].history.push({ role: 'ai', content: aiData.reply });
+        if (sessions[phone].history.length > 20) sessions[phone].history.shift();
+
+        // 4. Proactive Follow-Up Logic
+        if ((aiData.emotion === 'sad' || aiData.emotion === 'stressed') && !sessions[phone].isFollowUp) {
+            console.log(`Scheduling follow-up for ${phone} in 5 minutes due to emotion: ${aiData.emotion}`);
+            setTimeout(() => triggerFollowUp(phone), 5 * 60 * 1000);
         }
 
-        twiml.say({ language: 'hi-IN' }, aiData.reply);
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, aiData.reply);
 
         // Allow user to respond again
         twiml.gather({
