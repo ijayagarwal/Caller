@@ -15,79 +15,31 @@ export function Hero() {
   const handleCall = async () => {
     if (!phoneNumber) return;
     setLoading(true);
-    setStatus('Analyzing environment...');
+    setStatus('Initiating demo call...');
 
-    // 1. Diagnostic Data
-    const envUrl = import.meta.env.VITE_BACKEND_URL;
-    const isProd = import.meta.env.PROD;
-    const backendUrl = (envUrl || '').trim();
-
-    console.log('--- Diagnostic Report ---');
-    console.log('Environment:', isProd ? 'Production' : 'Development');
-    console.log('VITE_BACKEND_URL (Raw):', envUrl ? 'Detected' : 'MISSING');
-
-    if (!backendUrl && isProd) {
-      const msg = 'CRITICAL: VITE_BACKEND_URL is missing in Vercel settings. Please add it and REDEPLOY.';
-      setStatus(msg);
-      setLoading(false);
-      return;
-    }
-
-    const finalBackendUrl = backendUrl.replace(/\/$/, '') || 'http://localhost:3000';
-
-    // 2. Protocol Check (Mixed Content Prevention)
-    if (window.location.protocol === 'https:' && finalBackendUrl.startsWith('http:')) {
-      if (!finalBackendUrl.includes('localhost')) {
-        const msg = 'Security Error: Cannot call HTTP backend from HTTPS site. Update Render URL to use https://';
-        setStatus(msg);
-        setLoading(false);
-        return;
-      }
-    }
+    const backendUrl = (import.meta.env.VITE_BACKEND_URL || '').trim().replace(/\/$/, '') || 'http://localhost:3000';
 
     try {
-      // 3. Health Ping
-      setStatus('Pinging backend server...');
-      const healthCheck = await fetch(`${finalBackendUrl}/health`).catch(e => {
-        console.error('Ping failed:', e);
-        return { ok: false, statusText: e.message };
-      });
-
-      if (!healthCheck.ok) {
-        throw new Error(`Server at ${finalBackendUrl} is unreachable. It may be sleeping or down.`);
-      }
-
-      // 4. Actual Call Request
-      setStatus('Requesting call...');
-      const response = await fetch(`${finalBackendUrl}/api/call`, {
+      const response = await fetch(`${backendUrl}/api/call`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: phoneNumber }),
       });
 
-      const data = await response.json().catch(() => ({}));
+      const data = await response.json();
 
       if (response.ok) {
-        setStatus('Success! You will receive a call shortly.');
+        setStatus('You will receive a call shortly');
         setTimeout(() => {
           setIsDemoActive(false);
           setPhoneNumber('');
           setStatus('');
         }, 5000);
       } else {
-        throw new Error(data.error || `Server responded with ${response.status}`);
+        throw new Error(data.error || 'Failed to call');
       }
-
     } catch (e: any) {
-      console.error('--- Final Error Log ---');
-      console.error(e);
-
-      let friendlyMessage = e.message;
-      if (e.message.includes('Failed to fetch')) {
-        friendlyMessage = `Network Error: Request blocked. If site is HTTPS, the backend URL MUST start with https://`;
-      }
-
-      setStatus(`Diagnostic Failure: ${friendlyMessage}`);
+      setStatus(`Error: ${e.message}`);
     } finally {
       setLoading(false);
     }
