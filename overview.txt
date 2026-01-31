@@ -1,0 +1,46 @@
+# AI Caller: Technical Overview & System Flow
+
+This document provides a high-level overview of how the AI Caller application operates, from the user clicking "Call Me" to a real-time voice conversation.
+
+## 1. System Architecture
+
+The app is split into three main components:
+- **Frontend (React)**: Handles user input (phone number), country detection, and initiates the call.
+- **Backend (Node.js/Express)**: Orchestrates Twilio instructions, manages sessions, and handles real-time WebSockets.
+- **AI/Cloud Layer**:
+    - **Google Gemini (text-bison-001)**: Generates conversational responses and detects user emotion.
+    - **Google Cloud STT**: Transcribes real-time Mulaw audio from the phone into text.
+    - **Google Cloud TTS**: Converts AI text responses into Mulaw audio bytes for the phone.
+
+## 2. The Implementation Flow
+
+### Phase A: Call Initiation
+1. The user enters their phone number on the frontend and clicks "Call Me".
+2. The frontend sends a POST request to `/api/call`.
+3. The backend creates a unique **Session Object** (mapped by a normalized phone number) to store conversation history and context.
+4. The backend uses the Twilio API to trigger an outbound call to the user.
+
+### Phase B: Persona Selection (TwiML)
+1. When the user answers, Twilio fetches instructions from the `/voice` endpoint.
+2. The user hears a prompt: "Press 1 for Neelum, 2 for Neel."
+3. Twilio's `<Gather>` command sends the user's digit back to `/select-persona`.
+4. The backend updates the session with the chosen identity and returns a `<Connect><Stream>` TwiML.
+
+### Phase C: The Real-Time Stream (WebSockets)
+1. Twilio opens a persistent WebSocket connection to the backend's `/media` endpoint.
+2. **Audio Intake**: Inbound audio bytes from the user are piped directly to **Google Cloud Speech-to-Text**.
+3. **Transcription**: When STT detects a "final" sentence, the backend sends that text to **Gemini**.
+4. **AI Processing**: Gemini receives the full conversation history + the new user input. It returns a JSON object containing a natural response and an emotion classification.
+5. **Audio Output**: The AI's text response is sent to **Google Cloud TTS**. The resulting Mulaw audio bytes are sent back through the WebSocket to Twilio, which plays them on the user's phone.
+
+### Phase D: Interruption (Barge-in) Support
+1. The backend constantly monitors audio energy levels.
+2. If the user speaks while the AI is talking, the backend sends a `clear` command to Twilio to stop AI playback instantly.
+3. The AI then "listens" to the new input and responds contextually to the interruption.
+
+## 3. Tech Stack
+- **Communication**: Twilio Programmable Voice & Media Streams.
+- **AI Models**: Google Gemini (Vertex AI / Generative AI SDK).
+- **Core Services**: Google Cloud STT & TTS.
+- **Backend**: Node.js, Express, `ws` (WebSockets).
+- **Frontend**: Vite, React, TailwindCSS, Motion.

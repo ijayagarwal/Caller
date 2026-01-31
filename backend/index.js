@@ -37,12 +37,14 @@ const PERSONAS = {
     }
 };
 
-// In-memory sessions
-const sessions = {};
+// Helper to normalize phone numbers (strip + and spaces)
+function normalizePhone(phone) {
+    return phone.replace(/\D/g, '');
+}
 
 // 1. Initial TwiML - Persona Selection
 app.post('/voice', (req, res) => {
-    const phone = req.query.phone;
+    const phone = normalizePhone(req.query.phone || '');
     console.log(`[Twilio] Call received for ${phone}`);
     const twiml = new VoiceResponse();
 
@@ -64,29 +66,42 @@ app.post('/voice', (req, res) => {
 
 // 2. Select Persona & Start Stream
 app.post('/select-persona', (req, res) => {
-    const phone = req.query.phone;
+    const phone = normalizePhone(req.query.phone || '');
     const digit = req.body.Digits || '1';
     console.log(`[Twilio] Persona ${digit} selected for ${phone}`);
 
     const session = sessions[phone];
     if (session) {
         session.persona = PERSONAS[digit] || PERSONAS['1'];
+    } else {
+        console.warn(`[Warning] No session found for ${phone} during persona selection`);
     }
 
     const twiml = new VoiceResponse();
     const connect = twiml.connect();
+
+    // Use PUBLIC_BASE_URL if available for more reliable WebSocket resolution
+    const streamUrl = process.env.PUBLIC_BASE_URL
+        ? `${process.env.PUBLIC_BASE_URL.replace('https://', 'wss://')}/media?phone=${encodeURIComponent(phone)}`
+        : `wss://${req.headers.host}/media?phone=${encodeURIComponent(phone)}`;
+
     connect.stream({
-        url: `wss://${req.headers.host}/media?phone=${encodeURIComponent(phone)}`,
+        url: streamUrl,
         name: 'AI_Stream'
     });
+
+    // Add defensive Pause to keep the call alive while stream establishes
+    twiml.pause({ length: 40 });
 
     res.type('text/xml').send(twiml.toString());
 });
 
 // 2. Call Initiation
 app.post('/api/call', async (req, res) => {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone required' });
+    const { phone: rawPhone } = req.body;
+    if (!rawPhone) return res.status(400).json({ error: 'Phone required' });
+
+    const phone = normalizePhone(rawPhone);
 
     const client = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     try {
@@ -98,13 +113,15 @@ app.post('/api/call', async (req, res) => {
             interrupted: false,
             persona: null // To be selected
         };
+        console.log(`[API] Initiating call to ${phone}`);
         await client.calls.create({
             url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
-            to: phone,
+            to: rawPhone,
             from: process.env.TWILIO_PHONE_NUMBER,
         });
         res.json({ message: 'Success: Call initiated' });
     } catch (e) {
+        console.error(`[API Error] Failed to initiate call: ${e.message}`);
         res.status(500).json({ error: e.message });
     }
 });
@@ -112,11 +129,14 @@ app.post('/api/call', async (req, res) => {
 // 3. Media Stream WebSocket Handling
 wss.on('connection', (ws, req) => {
     const params = URL.parse(req.url, true).query;
-    const phone = params.phone;
-    console.log(`[Stream] Connected for ${phone}`);
+    const phone = normalizePhone(params.phone || '');
+    console.log(`[Stream] WebSocket connected for ${phone}`);
 
     let streamSid = '';
     let session = sessions[phone] || { history: [], emotion: 'neutral' };
+    if (!sessions[phone]) {
+        console.warn(`[Warning] No pre-existing session found for ${phone}. Creating ad-hoc session.`);
+    }
     let recognizeStream = null;
 
     ws.on('message', async (message) => {
