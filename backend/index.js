@@ -146,6 +146,14 @@ app.post('/process', async (req, res) => {
         return res.send(twiml.toString());
     }
 
+    // Diagnostic: Check for placeholder key
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY.includes('REPLACE')) {
+        console.error("[CRITICAL] Gemini API Key is missing or using placeholder value!");
+        twiml.say({ language: 'hi-IN', voice: 'Google.hi-IN-Standard-A' }, "Maaf kijiye, mere dimag ka configuration incomplete hai. Aapka developer shayed API key bhul gaya.");
+        res.type('text/xml');
+        return res.send(twiml.toString());
+    }
+
     try {
         // Build history context
         const historyText = (sessions[phone].history || [])
