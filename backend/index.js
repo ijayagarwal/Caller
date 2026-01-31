@@ -7,9 +7,23 @@ const cors = require('cors');
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+const frontendOrigin = process.env.FRONTEND_ORIGIN || '*';
 app.use(cors({
-    origin: process.env.FRONTEND_ORIGIN || '*'
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        // or if it matches the frontend origin (ignoring trailing slash)
+        if (!origin || origin === frontendOrigin || origin === frontendOrigin.replace(/\/$/, '') || frontendOrigin === '*') {
+            callback(null, true);
+        } else {
+            console.log(`CORS blocked for origin: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    credentials: true
 }));
+
+app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
 // In-memory store for user sessions and state
 const sessions = {};
