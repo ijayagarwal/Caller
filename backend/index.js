@@ -8,12 +8,10 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-const frontendOrigin = process.env.FRONTEND_ORIGIN || '*';
-app.use(cors({
-    origin: true,
-    credentials: true
-}));
+// Most permissive CORS for demo stability
+app.use(cors());
 
+app.get('/', (req, res) => res.send('AI Caller Backend is running!'));
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
 
 // In-memory store for user sessions and state
