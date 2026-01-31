@@ -30,12 +30,28 @@ const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 // 1. Trigger the call
 app.post('/api/call', async (req, res) => {
     const { phone } = req.body;
+    console.log(`[Call Initiation] Target phone: ${phone}`);
+
     if (!phone) {
         return res.status(400).json({ error: 'Missing "phone" in request body' });
     }
 
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const twilioPhone = process.env.TWILIO_PHONE_NUMBER;
+    const publicUrl = process.env.PUBLIC_BASE_URL;
+
+    // Validate env vars
+    if (!accountSid || accountSid.includes('REPLACE')) {
+        return res.status(500).json({ error: 'System Error: TWILIO_ACCOUNT_SID is not configured' });
+    }
+    if (!authToken || authToken.includes('REPLACE')) {
+        return res.status(500).json({ error: 'System Error: TWILIO_AUTH_TOKEN is not configured' });
+    }
+    if (!twilioPhone || twilioPhone.includes('REPLACE')) {
+        return res.status(500).json({ error: 'System Error: TWILIO_PHONE_NUMBER is not configured' });
+    }
+
     const client = require('twilio')(accountSid, authToken);
 
     try {
@@ -46,16 +62,29 @@ app.post('/api/call', async (req, res) => {
             isFollowUp: false
         };
 
+        console.log(`[Twilio] Creating call using From: ${twilioPhone}, URL: ${publicUrl}/voice`);
+
         const call = await client.calls.create({
-            url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
+            url: `${publicUrl}/voice?phone=${encodeURIComponent(phone)}`,
             to: phone,
-            from: process.env.TWILIO_PHONE_NUMBER,
+            from: twilioPhone,
         });
 
+        console.log(`[Twilio] Call created successfully. SID: ${call.sid}`);
         res.json({ message: 'Call initiated', callSid: call.sid });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error initiating call: ' + error.message });
+        console.error('[Twilio Error Check]', error);
+
+        let errorMsg = error.message;
+        if (error.code === 20003) errorMsg = "Twilio Authentication Error. Check SID and Token.";
+        if (error.code === 21211) errorMsg = "Invalid Phone Number format.";
+        if (error.code === 21608) errorMsg = "Verified Caller IDs required for Trial Accounts.";
+
+        res.status(500).json({
+            error: 'Twilio failed to trigger call.',
+            detail: errorMsg,
+            code: error.code
+        });
     }
 });
 
