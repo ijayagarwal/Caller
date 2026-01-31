@@ -1,17 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const VoiceResponse = require('twilio').twiml.VoiceResponse;
-const OpenAI = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const cors = require('cors');
 
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: process.env.FRONTEND_ORIGIN || '*'
+}));
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// In-memory store for user sessions and state
+const sessions = {};
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // 1. Trigger the call
 app.post('/api/call', async (req, res) => {
@@ -25,11 +29,19 @@ app.post('/api/call', async (req, res) => {
     const client = require('twilio')(accountSid, authToken);
 
     try {
+        // Initialize or reset session
+        sessions[phone] = {
+            emotion: 'okay',
+            lastCallTime: Date.now(),
+            isFollowUp: false
+        };
+
         const call = await client.calls.create({
-            url: `${process.env.PUBLIC_BASE_URL}/voice`,
+            url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
             to: phone,
             from: process.env.TWILIO_PHONE_NUMBER,
         });
+
         res.json({ message: 'Call initiated', callSid: call.sid });
     } catch (error) {
         console.error(error);
@@ -39,12 +51,20 @@ app.post('/api/call', async (req, res) => {
 
 // 2. Handle the call answer
 app.post('/voice', (req, res) => {
+    const phone = req.query.phone;
     const twiml = new VoiceResponse();
+    const session = sessions[phone] || {};
 
-    twiml.say("Hi, this is your AI calling you first. How are you feeling today?");
+    const greeting = session.isFollowUp
+        ? "Main wapas call kar raha tha bas check karne ke liye. Ab thoda better lag raha hai?"
+        : "Hi, main tumhara AI hoon. Main khud call kar raha hoon. Aaj tum kaise feel kar rahe ho?";
+
+    twiml.say({ language: 'hi-IN' }, greeting);
+
     twiml.gather({
         input: 'speech',
-        action: '/process',
+        action: `/process?phone=${encodeURIComponent(phone)}`,
+        language: 'hi-IN',
         speechTimeout: 'auto',
     });
 
@@ -54,37 +74,88 @@ app.post('/voice', (req, res) => {
 
 // 3. Process the speech and respond
 app.post('/process', async (req, res) => {
-    const twiml = new VoiceResponse();
+    const phone = req.query.phone;
     const userSpeech = req.body.SpeechResult;
+    const twiml = new VoiceResponse();
 
     if (!userSpeech) {
-        twiml.say("I didn't catch that. Goodbye.");
+        twiml.say({ language: 'hi-IN' }, "I didn't catch that. Phir milte hain. Goodbye.");
         res.type('text/xml');
         return res.send(twiml.toString());
     }
 
     try {
-        const completion = await openai.chat.completions.create({
-            messages: [
-                { role: "system", content: "You are a helpful and polite telephone assistant. Keep your answer short and conversational." },
-                { role: "user", content: userSpeech },
-            ],
-            model: "gpt-3.5-turbo", // or gpt-4
-            max_tokens: 60,
+        const prompt = `
+You are a caring AI calling a human proactively. 
+The user may speak in Hindi, English, or Hinglish.
+Rules:
+- Reply in the SAME language and style as the user.
+- Be warm, friendly, and emotionally aware.
+- Detect emotional state of the user from their speech. Choose exactly one: [sad, stressed, okay, happy].
+- Keep replies under 2 sentences.
+- Format your response as JSON: {"reply": "the response", "emotion": "the detected emotion"}
+
+User said: "${userSpeech}"
+`;
+
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text();
+
+        // Basic JSON extraction as Gemini might wrap in markdown
+        const jsonMatch = responseText.match(/\{.*\}/s);
+        const aiData = jsonMatch ? JSON.parse(jsonMatch[0]) : { reply: "Theek hai, dhanyawad.", emotion: "okay" };
+
+        // Store state
+        if (sessions[phone]) {
+            sessions[phone].emotion = aiData.emotion;
+            sessions[phone].lastMessage = userSpeech;
+            sessions[phone].lastCallTime = Date.now();
+
+            // 4. Proactive Follow-Up Logic
+            if ((aiData.emotion === 'sad' || aiData.emotion === 'stressed') && !sessions[phone].isFollowUp) {
+                console.log(`Scheduling follow-up for ${phone} in 5 minutes due to emotion: ${aiData.emotion}`);
+                setTimeout(() => triggerFollowUp(phone), 5 * 60 * 1000);
+            }
+        }
+
+        twiml.say({ language: 'hi-IN' }, aiData.reply);
+
+        // Allow user to respond again
+        twiml.gather({
+            input: 'speech',
+            action: `/process?phone=${encodeURIComponent(phone)}`,
+            language: 'hi-IN',
+            speechTimeout: 'auto',
         });
 
-        const aiResponse = completion.choices[0].message.content;
-
-        twiml.say(aiResponse);
-        // The call ends here as there is no further gathering or redirection
     } catch (error) {
-        console.error("OpenAI Error:", error);
-        twiml.say("I'm having trouble thinking right now. Goodbye.");
+        console.error("Gemini Error:", error);
+        twiml.say({ language: 'hi-IN' }, "Maaf kijiye, kuch error aa gaya. Bye.");
     }
 
     res.type('text/xml');
     res.send(twiml.toString());
 });
+
+async function triggerFollowUp(phone) {
+    if (!sessions[phone]) return;
+
+    console.log(`Triggering follow-up call to ${phone}`);
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const client = require('twilio')(accountSid, authToken);
+
+    try {
+        sessions[phone].isFollowUp = true;
+        await client.calls.create({
+            url: `${process.env.PUBLIC_BASE_URL}/voice?phone=${encodeURIComponent(phone)}`,
+            to: phone,
+            from: process.env.TWILIO_PHONE_NUMBER,
+        });
+    } catch (error) {
+        console.error("Follow-up call failed:", error);
+    }
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
