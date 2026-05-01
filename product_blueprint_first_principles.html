@@ -1,0 +1,323 @@
+
+<h2 class="sr-only">Complete product blueprint for the AI salesman platform — all components, tasks, and data flows explained from first principles</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.w{padding:1rem 0;font-family:var(--font-sans);}
+.sl{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem;}
+.tab-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1.25rem;}
+.tab{padding:6px 14px;border:0.5px solid var(--color-border-tertiary);border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);}
+.tab.active{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;}
+.panel{display:none;}
+.panel.active{display:block;}
+.module{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px;margin-bottom:10px;}
+.module-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:12px;}
+.module-title{font-size:14px;font-weight:500;color:var(--color-text-primary);}
+.badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:10px;white-space:nowrap;flex-shrink:0;}
+.b-core{background:#E1F5EE;color:#085041;}
+.b-ui{background:#E6F1FB;color:#0C447C;}
+.b-ai{background:#EEEDFE;color:#3C3489;}
+.b-data{background:#FAEEDA;color:#633806;}
+.b-infra{background:#F1EFE8;color:#444441;}
+.b-money{background:#FAECE7;color:#4A1B0C;}
+.module-desc{font-size:13px;color:var(--color-text-secondary);line-height:1.6;margin-bottom:8px;}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:8px;}
+.detail-box{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px 12px;}
+.detail-box h5{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px;}
+.detail-box p{font-size:11px;color:var(--color-text-secondary);line-height:1.5;}
+.flow-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0;}
+.flow-step{font-size:12px;padding:4px 10px;background:var(--color-background-secondary);border-radius:20px;color:var(--color-text-primary);border:0.5px solid var(--color-border-tertiary);}
+.flow-arr{font-size:12px;color:var(--color-text-secondary);}
+.tool-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.ttag{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--color-background-secondary);color:var(--color-text-secondary);border:0.5px solid var(--color-border-tertiary);}
+.divider{border:none;border-top:0.5px solid var(--color-border-tertiary);margin:1rem 0;}
+.metric-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:1rem;}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:10px;text-align:center;}
+.metric .val{font-size:17px;font-weight:500;color:var(--color-text-primary);}
+.metric .lbl{font-size:10px;color:var(--color-text-secondary);margin-top:3px;}
+.task-list{display:flex;flex-direction:column;gap:8px;}
+.task-item{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding:10px 12px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);}
+.task-num{font-size:11px;font-weight:500;color:var(--color-text-secondary);background:var(--color-background-secondary);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.task-content h4{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;}
+.task-content p{font-size:12px;color:var(--color-text-secondary);line-height:1.5;}
+.task-content .why{font-size:11px;color:#3C3489;margin-top:4px;font-style:italic;}
+</style>
+
+<div class="w">
+<div class="sl">what we are building — first principles</div>
+
+<div class="tab-row">
+  <div class="tab active" onclick="show('core')">Core problem</div>
+  <div class="tab" onclick="show('modules')">All modules</div>
+  <div class="tab" onclick="show('data')">Data & brain</div>
+  <div class="tab" onclick="show('tasks')">Task breakdown</div>
+  <div class="tab" onclick="show('money')">How it earns</div>
+</div>
+
+<div id="core" class="panel active">
+  <div class="sl">the problem we are solving from first principles</div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">The root problem</span><span class="badge b-core">foundation</span></div>
+    <div class="module-desc">Every business needs customers. Getting customers requires someone to find leads, call them, talk to them naturally, handle their objections, follow up repeatedly, and eventually convert them. Today that "someone" is a human salesperson — expensive, inconsistent, unavailable at night, and limited to maybe 80 calls a day. A single human salesperson in India costs ₹15,000–25,000 per month plus they quit, get sick, have bad days, and forget to follow up.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>What humans do in sales</h5><p>Find leads → research them → call → pitch → handle objections → follow up → follow up again → close → log in CRM → repeat 80 times a day</p></div>
+      <div class="detail-box"><h5>What's broken</h5><p>80 calls/day max. Miss evenings and weekends. Forget follow-ups. Inconsistent pitch. Quit after 3 months. Cost ₹20K+/month each.</p></div>
+      <div class="detail-box"><h5>What we replace</h5><p>An AI that makes 1000 calls/day, never forgets, speaks Hindi/Hinglish/English, follows up automatically, works 24/7, costs ₹10K/month total.</p></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">The core loop we are building</span><span class="badge b-core">foundation</span></div>
+    <div class="flow-row">
+      <span class="flow-step">Business gives us leads</span><span class="flow-arr">→</span>
+      <span class="flow-step">AI asks setup questions</span><span class="flow-arr">→</span>
+      <span class="flow-step">AI calls every lead</span><span class="flow-arr">→</span>
+      <span class="flow-step">Handles conversation</span><span class="flow-arr">→</span>
+      <span class="flow-step">Books meetings / closes</span><span class="flow-arr">→</span>
+      <span class="flow-step">Follows up on WhatsApp + email</span><span class="flow-arr">→</span>
+      <span class="flow-step">Business sees results on dashboard</span>
+    </div>
+    <div class="module-desc" style="margin-top:8px;">That is the entire product. Every feature we build either improves one of these steps or adds a new channel. Nothing else.</div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Why now — why this works in 2026</span><span class="badge b-ai">AI</span></div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Voice AI crossed the threshold</h5><p>Cartesia and ElevenLabs now deliver voice under 100ms latency. Conversations feel human. This was not possible 18 months ago.</p></div>
+      <div class="detail-box"><h5>LLMs handle objections</h5><p>Claude and GPT-4.1 can understand context, handle "I'm not interested," respond naturally, and recover the conversation. Scripted IVR couldn't do this.</p></div>
+      <div class="detail-box"><h5>Sarvam solves India</h5><p>Hindi, Hinglish, Tamil, Telugu — now available via API. 600M+ non-English Indian users can now be reached with AI that speaks their language.</p></div>
+      <div class="detail-box"><h5>Infrastructure is free to start</h5><p>$75K+ in credits means we can run hundreds of thousands of calls before paying a rupee. Zero financial risk to build and validate.</p></div>
+    </div>
+  </div>
+</div>
+
+<div id="modules" class="panel">
+  <div class="sl">every module we are building</div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 1 — Business onboarding engine</span><span class="badge b-ui">UI</span></div>
+    <div class="module-desc">When a business signs up, they don't configure settings — they have a conversation. The platform asks them 5–7 plain-language questions: What are you selling? Who is your ideal customer? What is your pitch in one sentence? What are the top 3 objections you hear? What is the goal of each call — book a meeting, qualify, or close directly? Based on answers, the AI automatically builds its entire conversation flow, opening script, objection handlers, and closing logic. No human needs to write prompts or configure anything.</div>
+    <div class="flow-row">
+      <span class="flow-step">Business answers 7 questions</span><span class="flow-arr">→</span>
+      <span class="flow-step">Platform builds AI brain</span><span class="flow-arr">→</span>
+      <span class="flow-step">Test call generated</span><span class="flow-arr">→</span>
+      <span class="flow-step">Business approves</span><span class="flow-arr">→</span>
+      <span class="flow-step">Live in 10 minutes</span>
+    </div>
+    <div class="tool-tags"><span class="ttag">Claude API</span><span class="ttag">Supabase</span><span class="ttag">Next.js</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 2 — Lead input system</span><span class="badge b-ui">UI</span></div>
+    <div class="module-desc">Three ways to give the AI its leads. First: paste a CSV or Google Sheet — name, phone, company, any context available. Second: describe the ideal customer in plain text and the platform builds the list by scraping JustDial, IndiaMART, LinkedIn, Google Maps automatically. Third: connect an existing CRM like Zoho or HubSpot and pull leads directly. The platform validates every number, removes duplicates, detects the best time to call each lead based on their geography, and queues them up.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Manual upload</h5><p>CSV drag-drop. Auto-map columns. Validate all phone numbers. Preview before launch. Handles 10 to 100,000 leads.</p></div>
+      <div class="detail-box"><h5>AI lead sourcing</h5><p>Describe ICP → Browser Use + Firecrawl scrape web → enriched leads with phone, email, company size, industry land in dashboard.</p></div>
+      <div class="detail-box"><h5>CRM sync</h5><p>Connect Zoho, HubSpot, Salesforce. New leads auto-flow into calling queue. Outcomes auto-sync back.</p></div>
+    </div>
+    <div class="tool-tags"><span class="ttag">Firecrawl</span><span class="ttag">Browser Use</span><span class="ttag">Supabase</span><span class="ttag">Razorpay</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 3 — AI voice calling engine</span><span class="badge b-core">core</span></div>
+    <div class="module-desc">This is the heart of the product. The AI dials a lead's number. When they pick up, the AI introduces itself naturally, delivers the opening pitch, listens, understands what the person says, decides what to say next based on their response, handles any objection, and either books a meeting, closes the sale, or exits gracefully with a follow-up scheduled. The entire conversation flows in real time with under 500ms latency so it never feels like a robot. Every word the AI says and every word the customer says is transcribed live and stored.</div>
+    <div class="flow-row">
+      <span class="flow-step">Dial lead</span><span class="flow-arr">→</span>
+      <span class="flow-step">Detect pickup vs voicemail</span><span class="flow-arr">→</span>
+      <span class="flow-step">Opening 10 seconds</span><span class="flow-arr">→</span>
+      <span class="flow-step">Listen and understand</span><span class="flow-arr">→</span>
+      <span class="flow-step">Respond with context</span><span class="flow-arr">→</span>
+      <span class="flow-step">Handle objections</span><span class="flow-arr">→</span>
+      <span class="flow-step">Book / close / schedule follow-up</span>
+    </div>
+    <div class="tool-tags"><span class="ttag">Vapi.ai</span><span class="ttag">Deepgram STT</span><span class="ttag">Sarvam AI (Hindi)</span><span class="ttag">ElevenLabs TTS</span><span class="ttag">Claude brain</span><span class="ttag">Twilio India</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 4 — Transcript + intelligence engine</span><span class="badge b-data">data</span></div>
+    <div class="module-desc">Every call is recorded and transcribed in real time. Each line of the transcript is tagged — who said it, when, what language, what sentiment, what intent. After the call ends, Claude reads the full transcript and extracts: what objections came up, what the lead's interest level is, what the next best action is, and what the outcome was. This data is stored structurally so you can query across all calls — "show me every call where the lead said 'too expensive'" — and fix that objection in the script immediately. Over time this becomes your proprietary dataset that trains a better model than anyone else's.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Real-time transcription</h5><p>Deepgram transcribes every word live. Speaker diarization separates AI vs customer. Language detection switches Hindi/English mid-sentence.</p></div>
+      <div class="detail-box"><h5>Post-call analysis</h5><p>Claude reads full transcript. Extracts: objections raised, interest score 1–10, outcome, next action. All stored in DB.</p></div>
+      <div class="detail-box"><h5>Pattern intelligence</h5><p>Across all calls: what objections kill most deals? At what second do people hang up? Which opener has best 30-second retention?</p></div>
+      <div class="detail-box"><h5>Training data flywheel</h5><p>After 10K calls: fine-tune own model on Unsloth using real Indian sales conversations. This is the moat nobody can copy.</p></div>
+    </div>
+    <div class="tool-tags"><span class="ttag">Deepgram</span><span class="ttag">Claude API</span><span class="ttag">Langfuse</span><span class="ttag">Supabase pgvector</span><span class="ttag">Unsloth (phase 3)</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 5 — Multi-channel follow-up engine</span><span class="badge b-core">core</span></div>
+    <div class="module-desc">A call is just the first touch. After every call — regardless of outcome — the AI decides what to do next based on what happened. If the person said "send me details" — a WhatsApp message with a brochure arrives before they hang up the phone. If they didn't answer — SMS in 5 minutes, WhatsApp in 1 hour, email the next morning. If they said "call me next week" — it automatically schedules the follow-up and calls exactly then. The platform orchestrates all four channels — call, WhatsApp, SMS, email — as one coordinated campaign, not separate tools.</div>
+    <div class="flow-row">
+      <span class="flow-step">Call outcome tagged</span><span class="flow-arr">→</span>
+      <span class="flow-step">Channel decision made</span><span class="flow-arr">→</span>
+      <span class="flow-step">WhatsApp / SMS / email triggered</span><span class="flow-arr">→</span>
+      <span class="flow-step">Lead responds</span><span class="flow-arr">→</span>
+      <span class="flow-step">AI continues conversation</span><span class="flow-arr">→</span>
+      <span class="flow-step">Meeting booked</span>
+    </div>
+    <div class="tool-tags"><span class="ttag">WhatsApp Business API</span><span class="ttag">AgentMail</span><span class="ttag">Twilio SMS</span><span class="ttag">Cal.com</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 6 — Business dashboard</span><span class="badge b-ui">UI</span></div>
+    <div class="module-desc">The business owner never touches the AI directly. They just open the dashboard and see everything that happened. Today's summary: calls made, pickup rate, conversations held, meetings booked, hot leads flagged. Each lead has a full call transcript they can read, a recording they can play, and the AI's analysis of that lead's interest level and next action. Hot leads trigger an instant WhatsApp to the business owner so they can personally call back within minutes. The dashboard is simple — it tells a business owner exactly what they need to know and nothing else.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Live call monitor</h5><p>See calls happening in real time. Calls in progress, duration, what stage of conversation.</p></div>
+      <div class="detail-box"><h5>Lead pipeline view</h5><p>Every lead with status: called, interested, meeting booked, not interested, follow-up scheduled. Filter and sort.</p></div>
+      <div class="detail-box"><h5>Transcript viewer</h5><p>Click any lead to read full transcript, play recording, see AI analysis. Understand exactly what happened.</p></div>
+      <div class="detail-box"><h5>Analytics layer</h5><p>Conversion rates, best performing times, top objections, campaign ROI. Updated after every call.</p></div>
+    </div>
+    <div class="tool-tags"><span class="ttag">Next.js</span><span class="ttag">Tailwind</span><span class="ttag">Supabase realtime</span><span class="ttag">Recharts</span></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Module 7 — Billing and outcome tracking</span><span class="badge b-money">revenue</span></div>
+    <div class="module-desc">The platform charges based on outcomes — meetings booked — not just calls made. This is the anti-11x trust play. Business pays a small platform fee plus a per-meeting fee only when the AI actually books a qualified meeting that shows up. Razorpay handles payment collection. The system auto-tracks which meetings came from AI calls, confirms attendance, and generates invoices at month end. Businesses see exactly what they paid and exactly what they got. Complete transparency.</div>
+    <div class="tool-tags"><span class="ttag">Razorpay</span><span class="ttag">Cal.com</span><span class="ttag">Supabase</span></div>
+  </div>
+</div>
+
+<div id="data" class="panel">
+  <div class="sl">the data and AI brain — how it thinks</div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">What the AI knows before every call</span><span class="badge b-ai">AI</span></div>
+    <div class="module-desc">Before dialing, the AI loads its context: who it is calling, what it knows about them (from CSV or enrichment), what the business sells, the entire product knowledge base, the current campaign goal, the conversation flow it should follow, all objection handlers, and what outcome to target. This is fed as a structured system prompt into Claude. The AI never hallucinates product details because it only speaks from verified information the business uploaded. Langfuse traces every decision so we can see exactly why it said what it said.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Business context (RAG)</h5><p>Business uploads PDFs, brochures, pricing. Embedded in vector DB. AI retrieves relevant chunks during calls to answer product questions accurately.</p></div>
+      <div class="detail-box"><h5>Lead context</h5><p>Name, company, industry, any previous interactions, what channel they came from. AI personalises opening based on this.</p></div>
+      <div class="detail-box"><h5>Conversation graph</h5><p>Structured flow: opener → discovery → pitch → objection handling → close → exit. AI follows this but can adapt naturally mid-conversation.</p></div>
+      <div class="detail-box"><h5>Guardrails</h5><p>Hard rules: never promise what the business hasn't said it can deliver. If asked something not in knowledge base — say "let me have our team follow up on that."</p></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Database structure — what we store</span><span class="badge b-data">data</span></div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>businesses table</h5><p>ID, name, industry, onboarding answers, product knowledge, campaign config, billing plan, owner WhatsApp number.</p></div>
+      <div class="detail-box"><h5>leads table</h5><p>ID, business_id, name, phone, company, source, status, call count, last_contacted, interest_score, next_action.</p></div>
+      <div class="detail-box"><h5>calls table</h5><p>ID, lead_id, start time, duration, pickup (yes/no), recording URL, outcome, raw transcript, structured analysis.</p></div>
+      <div class="detail-box"><h5>transcripts table</h5><p>call_id, timestamp, speaker (AI/human), text, language, sentiment, intent tag. One row per utterance.</p></div>
+      <div class="detail-box"><h5>messages table</h5><p>All WhatsApp, SMS, email sent. Channel, content, sent time, open/read status, reply received.</p></div>
+      <div class="detail-box"><h5>outcomes table</h5><p>meetings_booked, attended, converted to paying. Used for billing calculations and ROI reporting.</p></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">The learning loop — how it gets smarter</span><span class="badge b-ai">AI</span></div>
+    <div class="module-desc">After every 100 calls, the system runs an analysis: which call openings had the best 30-second retention? Which objection handlers led to the most bookings? What time of day gets highest pickup rates in this industry? These insights automatically update the conversation flow. The AI gets measurably better every week just by running more calls. After 10,000 calls across all businesses, we fine-tune our own Llama model on Unsloth using this real Indian sales conversation data. At that point our model outperforms general-purpose LLMs for Indian sales specifically — and no competitor can replicate it because they don't have the data.</div>
+  </div>
+</div>
+
+<div id="tasks" class="panel">
+  <div class="sl">detailed task breakdown — every piece we build</div>
+  <div class="task-list">
+
+    <div class="task-item"><div class="task-num">1</div><div class="task-content"><h4>Project setup and infrastructure</h4><p>Next.js frontend. Node.js backend. Supabase database. Azure hosting. All API keys stored in Infisical from minute one. GitHub repo with CI/CD via GitHub Actions. Cursor for development speed.</p><div class="why">Why: getting infra wrong early means rebuilding later. One day investment saves weeks.</div></div></div>
+
+    <div class="task-item"><div class="task-num">2</div><div class="task-content"><h4>Database schema — all 6 tables</h4><p>Design and create: businesses, leads, calls, transcripts, messages, outcomes. Include pgvector extension for RAG. Get relationships and indexes right now — impossible to restructure with live data later.</p><div class="why">Why: every feature depends on this. Bad schema = broken product.</div></div></div>
+
+    <div class="task-item"><div class="task-num">3</div><div class="task-content"><h4>Vapi integration — first working call</h4><p>Connect Vapi to a Twilio India number. Configure Deepgram as STT. Configure ElevenLabs as TTS. Add Claude as the LLM brain. Make the AI call your own phone. It should answer, say hello, handle one question, and end gracefully.</p><div class="why">Why: until a real call works, nothing else matters.</div></div></div>
+
+    <div class="task-item"><div class="task-num">4</div><div class="task-content"><h4>Sarvam AI for Hindi and Hinglish</h4><p>Integrate Sarvam AI as alternate STT and TTS for Hindi/Hinglish calls. Build language detection — if lead speaks Hindi, switch to Sarvam automatically mid-call. Test with native Hindi speakers.</p><div class="why">Why: 70% of your Indian market does not operate in English. This is not optional.</div></div></div>
+
+    <div class="task-item"><div class="task-num">5</div><div class="task-content"><h4>Langfuse observability — trace every LLM call</h4><p>Wrap every Claude API call with Langfuse tracing. Log: input prompt, output, latency, token count, call ID, lead ID. When AI says something wrong, you find it in 2 minutes not 2 hours.</p><div class="why">Why: hallucination on a live call destroys trust. You must be able to find and fix it instantly.</div></div></div>
+
+    <div class="task-item"><div class="task-num">6</div><div class="task-content"><h4>Business onboarding — the 7-question flow</h4><p>Build a conversational onboarding where business answers 7 questions in plain text. System generates: system prompt for AI, opening script, objection handler map, campaign config. Store in businesses table. Business can edit anytime.</p></div></div>
+
+    <div class="task-item"><div class="task-num">7</div><div class="task-content"><h4>RAG knowledge base</h4><p>Business uploads PDFs, Word docs, pricing sheets. System chunks them, embeds with OpenAI embeddings, stores in Supabase pgvector. During calls, AI retrieves relevant chunks to answer product questions. No hallucinations on product facts.</p></div></div>
+
+    <div class="task-item"><div class="task-num">8</div><div class="task-content"><h4>Lead upload — CSV and Google Sheets</h4><p>Drag and drop CSV upload. Auto-detect columns: name, phone, email, company, notes. Validate all phone numbers to E.164 format. Remove duplicates. Show preview with row count before launching. Handle up to 100,000 rows.</p></div></div>
+
+    <div class="task-item"><div class="task-num">9</div><div class="task-content"><h4>The conversation engine — full call flow</h4><p>Build the modular conversation graph: opener (10 seconds) → interest check → discovery questions → pitch → objection handler (minimum 5 objections mapped) → close attempt → graceful exit with follow-up scheduled. Test every branch path works correctly.</p></div></div>
+
+    <div class="task-item"><div class="task-num">10</div><div class="task-content"><h4>Outbound dialer with smart queue</h4><p>Queue management system. Voicemail detection — if voicemail, drop a message and mark for follow-up. No-answer → retry after 2 hours, max 3 attempts. Time-aware dialing — no calls before 9am or after 7pm in lead's timezone. Concurrent call limit management.</p></div></div>
+
+    <div class="task-item"><div class="task-num">11</div><div class="task-content"><h4>Real-time transcript storage</h4><p>Every utterance stored as it happens: timestamp, speaker (AI or human), text, detected language, sentiment score. Linked to call ID and lead ID. Searchable. This is the raw material for everything — analytics, fine-tuning, debugging, client reporting.</p></div></div>
+
+    <div class="task-item"><div class="task-num">12</div><div class="task-content"><h4>Post-call AI analysis</h4><p>After each call ends, Claude reads the full transcript and extracts: objections raised (list), interest score 1–10, conversation outcome, recommended next action, any promises made that need follow-up. All saved to calls table. Updates lead status automatically.</p></div></div>
+
+    <div class="task-item"><div class="task-num">13</div><div class="task-content"><h4>Cal.com meeting booking integration</h4><p>When AI determines a lead wants to book — it checks business owner's calendar via Cal.com API, offers 3 time slots, confirms booking, sends calendar invite to lead's email, sends WhatsApp confirmation. Meeting appears in business owner's calendar automatically.</p></div></div>
+
+    <div class="task-item"><div class="task-num">14</div><div class="task-content"><h4>Hot lead WhatsApp alert</h4><p>The moment AI scores a lead 8 or above on interest — instant WhatsApp to business owner. Message includes lead's name, phone number, 3-line transcript summary, and a link to full transcript. Business owner can call back personally within minutes while lead is still warm.</p></div></div>
+
+    <div class="task-item"><div class="task-num">15</div><div class="task-content"><h4>Business dashboard — MVP version</h4><p>Four views: today's summary (calls made, pickups, meetings booked), lead pipeline (all leads with statuses), transcript viewer (click any lead to see full call), analytics (conversion rates, best times, top objections). Built in Next.js with Supabase realtime for live updates.</p></div></div>
+
+    <div class="task-item"><div class="task-num">16</div><div class="task-content"><h4>Use it on ourselves — first 200 calls</h4><p>Configure the platform to sell our own platform. Build a list of 500 Indian EdTech, insurance, and real estate businesses from JustDial. Run the AI to call them, pitch our product, and book demos with us. This is the real-world stress test. Listen to every call recording. Fix everything that sounds wrong.</p></div></div>
+
+    <div class="task-item"><div class="task-num">17</div><div class="task-content"><h4>Script iteration loop</h4><p>After first 200 calls: identify the 3 moments where the most people hang up. Rewrite those moments. Run another 200 calls. Measure improvement. Repeat until 30-second retention is above 60%. This is the most important work of week 4.</p></div></div>
+
+    <div class="task-item"><div class="task-num">18</div><div class="task-content"><h4>Razorpay billing integration</h4><p>Payment plans in Razorpay: platform fee ₹5,000/month plus ₹500 per confirmed meeting booked. Auto-invoice generated at month end based on outcomes table data. Payment link sent via WhatsApp. Zero payment friction for Indian businesses.</p></div></div>
+
+    <div class="task-item"><div class="task-num">19</div><div class="task-content"><h4>WhatsApp Business API — follow-up engine</h4><p>After every call: outcome-triggered WhatsApp messages. "Send details" → product PDF arrives in 60 seconds. No answer → "Namaste, we tried calling you earlier..." after 5 minutes. Interested but busy → scheduled follow-up WhatsApp at time they specified. Build message templates approved by Meta.</p></div></div>
+
+    <div class="task-item"><div class="task-num">20</div><div class="task-content"><h4>Email follow-up via AgentMail</h4><p>Context-aware email sequences triggered by call outcomes. Not generic drip emails — each email references what happened on the call. "As discussed, here is the pricing you asked about." Personalised using transcript data. Sent from business owner's own email domain for trust.</p></div></div>
+
+    <div class="task-item"><div class="task-num">21</div><div class="task-content"><h4>Multi-channel orchestration logic</h4><p>The decision engine that decides what to do after every call and every message. Rules: no-answer → SMS 5 min → WhatsApp 1 hour → email next morning → call retry day 3. Each channel response updates the state. No lead is ever forgotten. No lead is ever over-contacted.</p></div></div>
+
+    <div class="task-item"><div class="task-num">22</div><div class="task-content"><h4>AI lead sourcing engine</h4><p>Business describes ideal customer in plain text: "EdTech companies in Pune with 10–50 employees selling online courses." Platform uses Firecrawl and Browser Use to scrape JustDial, IndiaMART, LinkedIn, Google Maps. Returns enriched list with phone numbers, emails, company size. Leads flow directly into calling queue.</p></div></div>
+
+    <div class="task-item"><div class="task-num">23</div><div class="task-content"><h4>Vertical templates — EdTech, insurance, real estate</h4><p>Pre-built conversation flows for the 3 top Indian verticals. Includes: industry-specific opener, common objections pre-mapped, typical sales goals, relevant call-to-action. New customer in insurance goes live in under 30 minutes without configuring anything from scratch.</p></div></div>
+
+    <div class="task-item"><div class="task-num">24</div><div class="task-content"><h4>Call analytics and insight engine</h4><p>Aggregate analytics across all calls: best performing opening lines, time-of-day heatmap for pickup rates, objection frequency breakdown, average call duration by outcome, conversion funnel. Updated after every call. Businesses pay extra for this layer as an insights product.</p></div></div>
+
+    <div class="task-item"><div class="task-num">25</div><div class="task-content"><h4>Human escalation and handoff</h4><p>When a lead is extremely hot or raises a complex question the AI cannot handle — AI says "let me connect you with our team right now" and transfers the call live to the business owner's phone. If owner is unavailable, schedules an immediate callback and sends urgent WhatsApp alert.</p></div></div>
+
+    <div class="task-item"><div class="task-num">26</div><div class="task-content"><h4>Compliance and consent system</h4><p>Every call starts with a 5-second disclosure: "This call may be recorded for quality purposes." Opt-out tracking — if anyone says "remove me from your list" the AI immediately stops, logs the opt-out, and that number is permanently blocked from all future campaigns across the platform.</p></div></div>
+
+    <div class="task-item"><div class="task-num">27</div><div class="task-content"><h4>Public ROI case studies</h4><p>Document every real result: "Insurance agency in Jaipur booked 23 meetings in 14 days, closed 4 policies worth ₹1.8L in first month." Real numbers, real business (with permission). This is the sales engine for acquiring the next 50 customers without spending on ads.</p></div></div>
+
+    <div class="task-item"><div class="task-num">28</div><div class="task-content"><h4>Fine-tuning on own call data</h4><p>After 10,000 calls accumulated: export all transcripts, clean and format as training data, fine-tune Llama 3 on Unsloth using our India-specific sales conversation dataset. Deploy the fine-tuned model for Indian calls. It now beats GPT-4 for this specific task. No competitor can replicate this dataset.</p></div></div>
+
+    <div class="task-item"><div class="task-num">29</div><div class="task-content"><h4>Self-serve signup and trial</h4><p>Any business can sign up, upload 50 leads, run a free trial of 50 calls with no credit card. Dashboard shows real results. At end of trial — upgrade prompt with their actual ROI numbers filled in: "Your AI booked 4 meetings. At ₹500/meeting that's ₹2,000 in outcomes. Upgrade to continue."</p></div></div>
+
+    <div class="task-item"><div class="task-num">30</div><div class="task-content"><h4>Scale: 50 customers, ₹15L MRR, raise</h4><p>With clean retention data, verified ROI case studies, and a fine-tuned model — approach pre-seed investors. Target: ₹2–3 Cr pre-seed at ₹15–20 Cr valuation. Use capital to expand to South Indian languages, SEA markets, and US mid-market via WhatsApp-first motion.</p></div></div>
+
+  </div>
+</div>
+
+<div id="money" class="panel">
+  <div class="sl">how it earns money — the complete model</div>
+
+  <div class="metric-row">
+    <div class="metric"><div class="val">₹5K/mo</div><div class="lbl">platform fee</div></div>
+    <div class="metric"><div class="val">₹500</div><div class="lbl">per meeting booked</div></div>
+    <div class="metric"><div class="val">~80%</div><div class="lbl">gross margin</div></div>
+    <div class="metric"><div class="val">Day 1</div><div class="lbl">first revenue possible</div></div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Why outcome-based pricing wins</span><span class="badge b-money">revenue</span></div>
+    <div class="module-desc">Every competitor charges per minute or per seat. The business pays whether results come or not. That is why they churn. We charge a small platform fee plus per confirmed meeting booked. If the AI books zero meetings, the business pays almost nothing. If it books 20 meetings — business pays ₹5K + ₹10K = ₹15K and got 20 qualified sales conversations. The ROI is obvious and immediate. This pricing model has the lowest churn in the entire category because the customer always feels they are getting more than they pay for.</div>
+    <div class="detail-grid">
+      <div class="detail-box"><h5>Starter plan</h5><p>₹5,000/month platform fee. 500 calls included. ₹500 per qualified meeting booked. Best for small agencies, 1-5 person sales teams.</p></div>
+      <div class="detail-box"><h5>Growth plan</h5><p>₹12,000/month. 2,000 calls. ₹400 per meeting. Multi-channel included (WhatsApp + email). Analytics dashboard.</p></div>
+      <div class="detail-box"><h5>Scale plan</h5><p>₹25,000/month. Unlimited calls. ₹300 per meeting. Custom AI voice. Dedicated support. Lead sourcing included.</p></div>
+      <div class="detail-box"><h5>Free trial</h5><p>50 calls, zero cost, no card needed. See real results before paying anything. Trial to paid conversion is the main acquisition motion.</p></div>
+    </div>
+  </div>
+
+  <div class="module">
+    <div class="module-head"><span class="module-title">Path to ₹1 Cr MRR</span><span class="badge b-money">revenue</span></div>
+    <div class="flow-row">
+      <span class="flow-step">Month 1: 3 customers = ₹30K MRR</span><span class="flow-arr">→</span>
+      <span class="flow-step">Month 3: 20 customers = ₹2.5L MRR</span><span class="flow-arr">→</span>
+      <span class="flow-step">Month 6: 75 customers = ₹9L MRR</span><span class="flow-arr">→</span>
+      <span class="flow-step">Month 12: 200 customers = ₹25L MRR</span><span class="flow-arr">→</span>
+      <span class="flow-step">Year 2: ₹1 Cr MRR</span>
+    </div>
+    <div class="module-desc" style="margin-top:8px;">These numbers assume 20% month-on-month growth and less than 5% monthly churn — both achievable with outcome-based pricing and strong onboarding. The AI selling our AI accelerates this timeline significantly because the cost of acquiring each new customer is essentially the cost of a few hundred phone calls.</div>
+  </div>
+</div>
+
+</div>
+
+<script>
+function show(id){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
